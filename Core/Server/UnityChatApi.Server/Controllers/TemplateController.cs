@@ -1,11 +1,11 @@
-﻿using ASPT.Routes;
+﻿using UnityChatApi.Routes;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace ASPT.Server.Controllers {
+namespace UnityChatApi.Server.Controllers {
     [ApiController]
     [Route("[controller]")]
     public class TemplateController:Controller {

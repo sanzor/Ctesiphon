@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ASPT.Conventions {
+namespace UnityChatApi.Conventions {
     public class Constants {
         public const string LOG_FILE = @"log/log.txt";
         public const string CONFIG_FILE = "appsettings.json";

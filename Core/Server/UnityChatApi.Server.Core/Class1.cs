@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ASPT.Server.Core {
+namespace UnityChatApi.Server.Core {
     class Class1 {
     }
 }

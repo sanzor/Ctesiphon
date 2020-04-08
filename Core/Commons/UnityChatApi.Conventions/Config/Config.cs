@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace ASPT.Conventions {
+namespace UnityChatApi.Conventions {
     public class Config {
         [JsonPropertyName("serverUrl")]
         public string ServerUrl { get; set; }
