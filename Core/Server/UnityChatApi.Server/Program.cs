@@ -28,12 +28,12 @@ namespace UnityChatApi.Server {
             .Enrich.FromLogContext()
             .CreateLogger();
             CreateWebHostBuilder(args).Build().Run();
-           Log.CloseAndFlush();
+            Log.CloseAndFlush();
         }
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
             var configPath = ToCurrentAssemblyRootPath(Constants.CONFIG_FILE);
-          //  Log.Information($"Using config at path: {configPath}");
+            //  Log.Information($"Using config at path: {configPath}");
             IConfiguration config = new ConfigurationBuilder().AddJsonFile(configPath).Build();
 
             var con = config.GetSection("config").Get<Config>();

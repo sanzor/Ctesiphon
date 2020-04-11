@@ -59,10 +59,12 @@ namespace UnityChatApi.Server {
             app.UseRouting();
 
             app.UseAuthorization();
-
+           
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllers();
             });
+            app.UseWebSockets();
+            app.UseMiddleware<SocketWare>();
         }
     }
 }

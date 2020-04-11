@@ -6,7 +6,7 @@ using System.Text;
 using UnityChatApi.Models;
 
 namespace UnityChatApi.DataAccess {
-    public class Adapter {
+    public class RedisAdapter {
         public static User Adapt(HashEntry[] entries) {
             var user = new User {
                 Id = entries.First(x => x.Name == "id").Value,

@@ -14,14 +14,14 @@ namespace UnityChatApi.DataAccess {
             if (!await this.store.Database.KeyExistsAsync(user.Id)) {
                 throw new NotSupportedException("User does not exist !");
             }
-            var entries = Adapter.Adapt(user);
+            var entries = RedisAdapter.Adapt(user);
             var tran = this.store.Database.CreateTransaction();
             tran.AddCondition(Condition.KeyExists(ToKey(user)));
             await this.store.Database.HashSetAsync(ToKey(user), entries);
 
         }
         public async Task<bool> InsertUserAsync(User user) {
-            var entries = Adapter.Adapt(user);
+            var entries = RedisAdapter.Adapt(user);
             if (this.store.Database.KeyExists(ToKey(user))) {
                 throw new Exception("User exists");
             }
@@ -40,7 +40,7 @@ namespace UnityChatApi.DataAccess {
         public async Task<User> GetUserAsync(string id) {
 
             var entries = await this.store.Database.HashGetAllAsync($"user:{id}");
-            var user = Adapter.Adapt(entries);
+            var user = RedisAdapter.Adapt(entries);
             return user;
 
         }
