@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Commons\UnityChatApi.Conventions\UnityChatApi.Conventions.csproj" />
     <ProjectReference Include="..\..\Commons\UnityChatApi.Extensions\UnityChatApi.Extensions.csproj" />
+    <ProjectReference Include="..\..\Commons\UnityChatApi.Models\UnityChatApi.Models\UnityChatApi.Models.csproj" />
     <ProjectReference Include="..\..\Commons\UnityChatApi.Routes\UnityChatApi.Routes.csproj" />
   </ItemGroup>
 

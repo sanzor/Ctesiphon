@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityChatApi.Extensions;
+using UnityChatApi.Models;
 
 namespace UnityChatApi.Server {
     public class SocketWare {
@@ -44,8 +45,8 @@ namespace UnityChatApi.Server {
             var buffer=ArrayPool<byte>.Shared.Rent(1024);
             try {
                 while (true) {
-                    string x = await socket.ReceiveAndDecode<string>();
-                    Console.WriteLine(x);
+                    Message x = await socket.ReceiveAndDecode<Message>();
+                    Console.WriteLine($"Date:{x.IssuedAt.ToShortDateString()}\tValue:{x.Value}");
                 }
             } catch (Exception ex) {
                 ArrayPool<byte>.Shared.Return(buffer);
