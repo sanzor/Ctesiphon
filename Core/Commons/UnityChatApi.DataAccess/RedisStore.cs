@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace UnityChatApi.DataAccess {
-    public class RedisStore {
+    public sealed class RedisStore {
         public ConnectionMultiplexer Connection;
         public RedisStore(string connectionString) {
             this.Connection = ConnectionMultiplexer.Connect(connectionString);
