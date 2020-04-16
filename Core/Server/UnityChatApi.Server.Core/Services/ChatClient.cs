@@ -11,6 +11,7 @@ using StackExchange.Redis;
 using System.Collections.Concurrent;
 using System.Buffers;
 using System.Threading;
+using Serilog.Core;
 
 namespace UnityChatApi.Server.Core {
     public sealed class ChatClient {
@@ -20,6 +21,7 @@ namespace UnityChatApi.Server.Core {
         private WebSocket socket;
         private RedisStore store;
         private ISubscriber sub;
+        private ILogger log = Log.ForContext<ChatMessage>();
         private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
         
         public ChatClient(WebSocket socket, RedisStore store) {
@@ -38,34 +40,50 @@ namespace UnityChatApi.Server.Core {
             }
 
         }
-
-        private async Task HandleMessageAsync(Message msg) {
-
-            //subscribe to channel if it is not already subscribed;
-            await this.sub.SubscribeAsync(msg.Channel, (channel, value) => {
-                this.queue.Add(value);
-             });
-            await this.sub.PublishAsync(msg.Channel, msg.Value);
-        }
-
         private async Task WriteLoopAsync() {
-            var buffer=ArrayPool<byte>.Shared.Rent(1024);
+
             while (true) {
                 //receive some message from socket
-                var result = await this.socket.ReceiveAsync(buffer, CancellationToken.None);
+                var message = await this.socket.ReceiveAndDecode<ChatMessage>();
+
                 //find list of subscribed channels and if it does not exist subscribe to it
                 //publish message to target channel
                 await HandleMessageAsync(message);
             }
 
         }
+        private async Task HandleMessageAsync(ChatMessage msg) {
+
+            switch (msg.Kind) {
+                case ChatMessage.DISCRIMINATOR.MESSAGE:var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson());break;
+                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await this.sub.SubscribeAsync(msg.Channel,OnMessage); break;
+                case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE:  this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
+                default:throw new NotSupportedException();
+
+            }
+            //subscribe to channel if it is not already subscribed;
+            await this.sub.SubscribeAsync(msg.Channel, (channel, value) => {
+              
+                this.queue.Add(value);
+             });
+            await this.sub.PublishAsync(msg.Channel, msg.Value);
+        }
+       
+        private void OnMessage(RedisChannel channel,RedisValue value) {
+            log.Information($"Received:{value}\tfrom channel:{channel}");
+            this.queue.Add(value);
+        }
+        private void OnUnsubscribe(RedisChannel channel, RedisValue value) {
+            log.Information($"Ending subscription to channel:{channel}");
+        }
         private async Task PopLoopAsync() {
-            
+            //mb user cancellation token on socket
             while (true) {
                 //pop a message from the queue that is filled by channel delegates
                 var data =this.queue.Take();
+                var bytes = Encoding.UTF8.GetBytes(data);
                 //send the message on the websocket
-                await this.socket.SendAsync(data.decode);
+                await this.socket.SendAsync(data,WebSocketMessageType.Text,true,CancellationToken.None);
             }
         }
        
