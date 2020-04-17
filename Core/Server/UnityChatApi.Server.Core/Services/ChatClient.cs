@@ -23,7 +23,7 @@ namespace UnityChatApi.Server.Core {
         private ISubscriber sub;
         private ILogger log = Log.ForContext<ChatMessage>();
         private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
-        
+
         public ChatClient(WebSocket socket, RedisStore store) {
             this.socket = socket;
             this.store = store;
@@ -34,7 +34,7 @@ namespace UnityChatApi.Server.Core {
                 this.sub = this.store.Connection.GetSubscriber();
                 this.writeTask = Task.Run(async () => await WriteLoopAsync());
                 this.popperTask = Task.Run(async () => await PopLoopAsync());
-                await Task.WhenAny(writeTask,popperTask);
+                await Task.WhenAll(writeTask, popperTask);
             } catch (Exception ex) {
                 throw;
             }
@@ -55,21 +55,16 @@ namespace UnityChatApi.Server.Core {
         private async Task HandleMessageAsync(ChatMessage msg) {
 
             switch (msg.Kind) {
-                case ChatMessage.DISCRIMINATOR.MESSAGE:var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson());break;
-                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await this.sub.SubscribeAsync(msg.Channel,OnMessage); break;
-                case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE:  this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
-                default:throw new NotSupportedException();
+
+                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await this.sub.SubscribeAsync(msg.Channel, OnMessage); break;
+                case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
+                case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
+                default: throw new NotSupportedException();
 
             }
-            //subscribe to channel if it is not already subscribed;
-            await this.sub.SubscribeAsync(msg.Channel, (channel, value) => {
-              
-                this.queue.Add(value);
-             });
-            await this.sub.PublishAsync(msg.Channel, msg.Value);
         }
-       
-        private void OnMessage(RedisChannel channel,RedisValue value) {
+
+        private void OnMessage(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
             this.queue.Add(value);
         }
@@ -77,17 +72,24 @@ namespace UnityChatApi.Server.Core {
             log.Information($"Ending subscription to channel:{channel}");
         }
         private async Task PopLoopAsync() {
-            //mb user cancellation token on socket
-            while (true) {
-                //pop a message from the queue that is filled by channel delegates
-                var data =this.queue.Take();
-                var bytes = Encoding.UTF8.GetBytes(data);
-                //send the message on the websocket
-                await this.socket.SendAsync(data,WebSocketMessageType.Text,true,CancellationToken.None);
+            try {
+                while (true) {
+                    //pop a message from the queue that is filled by channel delegates
+                    var data = this.queue.Take();
+                    var bytes = Encoding.UTF8.GetBytes(data);
+                    //send the message on the websocket
+                    await this.socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+
+            } catch (Exception ex) {
+
+                throw;
             }
+            //mb user cancellation token on socket
+           
         }
-       
-     
-       
+
+
+
     }
 }

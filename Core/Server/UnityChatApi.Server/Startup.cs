@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using UnityChatApi.DataAccess;
 
 namespace UnityChatApi.Server {
     public class Startup {
@@ -25,6 +26,8 @@ namespace UnityChatApi.Server {
             Config config = this.Configuration.GetSection("config").Get<Config>();
             services.Configure<Config>(this.Configuration.GetSection("config"));
             services.AddControllers();
+            RedisStore store = new RedisStore(config.Redis.Con);
+            services.AddSingleton(store);
             services.AddSwaggerGen(x => {
                 x.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
                     Title = config.Swagger.Title,
