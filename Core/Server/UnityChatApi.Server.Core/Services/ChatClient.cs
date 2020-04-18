@@ -12,6 +12,7 @@ using System.Collections.Concurrent;
 using System.Buffers;
 using System.Threading;
 using Serilog.Core;
+using UnityChatApi.Interfaces;
 
 namespace UnityChatApi.Server.Core {
     public sealed class ChatClient {
@@ -20,13 +21,16 @@ namespace UnityChatApi.Server.Core {
         private Task popperTask;
         private WebSocket socket;
         private RedisStore store;
+        private IChannelRegistry channelRegistryService;
         private ISubscriber sub;
         private ILogger log = Log.ForContext<ChatMessage>();
         private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
-
-        public ChatClient(WebSocket socket, RedisStore store) {
+        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+        private const int LCK_TIMEOUT = 1000;
+        public ChatClient(WebSocket socket, RedisStore store,IChannelRegistry channelRegistry) {
             this.socket = socket;
             this.store = store;
+            this.channelRegistryService = channelRegistry;
         }
 
         public async Task RunAsync() {
@@ -62,14 +66,31 @@ namespace UnityChatApi.Server.Core {
 
             switch (msg.Kind) {
 
-                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await this.sub.SubscribeAsync(msg.Channel, OnMessage); break;
+                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub,msg); break;
                 case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
                 case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
                 default: throw new NotSupportedException();
             }
         }
         private async Task HandleSubscribeAsync(ISubscriber sub,ChatMessage message) {
-           
+            var result = await this.channelRegistryService.RegisterChannelAsync(message.SenderID, message.Channel);
+
+            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
+            @lock.TryEnterWriteLock(LCK_TIMEOUT);
+            try {
+                if (result == "Success") {
+                    await this.sub.SubscribeAsync(message.Channel,OnMessage);
+                }
+            } catch (Exception ex) {
+                chatMsg.Value = "Could not subscribe";
+            } finally {
+                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
+                @lock.ExitWriteLock();
+            }
+            
+        }
+        private async Task HandleUnsubscribeAsync(ISubscriber sub,ChatMessage message) {
+
         }
         private void OnMessage(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");

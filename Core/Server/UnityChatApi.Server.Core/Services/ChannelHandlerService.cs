@@ -5,9 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityChatApi.DataAccess;
+using UnityChatApi.Interfaces;
 
 namespace UnityChatApi.Server.Core {
-    public class ChannelHandlerService {
+    public class ChannelHandlerService:IChannelRegistry {
         private RedisStore store;
         public ChannelHandlerService(RedisStore store) {
             this.store = store;

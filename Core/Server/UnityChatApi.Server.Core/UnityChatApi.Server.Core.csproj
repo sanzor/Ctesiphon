@@ -12,5 +12,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Commons\UnityChatApi.DataAccess\UnityChatApi.DataAccess.csproj" />
     <ProjectReference Include="..\..\Commons\UnityChatApi.Extensions\UnityChatApi.Extensions.csproj" />
+    <ProjectReference Include="..\..\Commons\UnityChatApi.Interfaces\UnityChatApi.Interfaces.csproj" />
   </ItemGroup>
 </Project>

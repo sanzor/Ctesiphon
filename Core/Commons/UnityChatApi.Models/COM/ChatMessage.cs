@@ -7,7 +7,8 @@ namespace UnityChatApi.Models {
         public enum DISCRIMINATOR {
             SUBSCRIBE=0,
             UNSUBSCRIBE=1,
-            MESSAGE=2
+            SERVER=2,
+            MESSAGE=3
         }
         
         public DISCRIMINATOR Kind { get; set; }
