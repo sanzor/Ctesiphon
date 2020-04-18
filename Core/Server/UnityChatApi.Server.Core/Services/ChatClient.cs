@@ -41,15 +41,21 @@ namespace UnityChatApi.Server.Core {
 
         }
         private async Task WriteLoopAsync() {
+            try {
+                while (true) {
+                    //receive some message from socket
+                    var message = await this.socket.ReceiveAndDecode<ChatMessage>();
 
-            while (true) {
-                //receive some message from socket
-                var message = await this.socket.ReceiveAndDecode<ChatMessage>();
+                    //find list of subscribed channels and if it does not exist subscribe to it
+                    //publish message to target channel
+                    await HandleMessageAsync(message);
+                }
+            } catch (Exception ex) {
 
-                //find list of subscribed channels and if it does not exist subscribe to it
-                //publish message to target channel
-                await HandleMessageAsync(message);
+                throw;
             }
+
+           
 
         }
         private async Task HandleMessageAsync(ChatMessage msg) {
@@ -60,10 +66,11 @@ namespace UnityChatApi.Server.Core {
                 case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
                 case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
                 default: throw new NotSupportedException();
-
             }
         }
-
+        private async Task HandleSubscribeAsync(ISubscriber sub,ChatMessage message) {
+           
+        }
         private void OnMessage(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
             this.queue.Add(value);

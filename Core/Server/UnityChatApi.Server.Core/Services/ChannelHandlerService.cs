@@ -7,36 +7,41 @@ using System.Threading.Tasks;
 using UnityChatApi.DataAccess;
 
 namespace UnityChatApi.Server.Core {
-    class ChannelHandlerService {
+    public class ChannelHandlerService {
         private RedisStore store;
         public ChannelHandlerService(RedisStore store) {
             this.store = store;
         }
-        public async Task<IEnumerable<string>> GetUserChannels(string userId) {
-            var list =await this.store.Database.ListRangeAsync($"user:{userId}_channels");
-            return list.Select(x=>x.ToString());
+        public async Task<IEnumerable<string>> GetSubscribedChannelsAsync(string userId) {
+            var list = await this.store.Database.HashGetAllAsync(userId);
+            return list.Select(x => x.Value.ToString());
         }
-        public async Task<bool> AddChannelAsync(string userId,string channel) {
-            
+        public async Task<string> RegisterChannelAsync(string userId, string channelId) {
             ITransaction tran = this.store.Database.CreateTransaction();
-            var channels = await this.GetUserChannels(userId);
-            if (channels.Contains(channel)) {
-                return false;
+            var channels = await this.GetSubscribedChannelsAsync(userId);
+            if (channels.Contains(channelId)) {
+                return "Exists";
             }
-            var push=this.store.Database.ListLeftPushAsync($"user:{userId}_channels", channel);
+            var didSet = this.store.Database.HashSetAsync(userId, channelId, DateTime.Now.ToString());
             var exec = await tran.ExecuteAsync();
-            return exec;
-            
+            return (await didSet & exec) == true ? "Success" : "Failed";
         }
-        public async Task<bool> DeleteChannelAsync(string userId,string channel) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        /// <param name="userId"></param>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public async  Task<string> UnregisterChannelAsync(string userId, string channelId) {
             ITransaction tran = this.store.Database.CreateTransaction();
-            var channels = await this.GetUserChannels(userId);
-            if (!channels.Contains(channel)) {
-                return false;
+            var channels = await this.GetSubscribedChannelsAsync(userId);
+            if (!channels.Contains(channelId)) {
+                return "NotExists";
             }
-            var push = this.store.Database.ListLeftPopAsync($"user:{userId}_channels");
+            var deleted = this.store.Database.HashDeleteAsync(userId, channelId);
             var exec = await tran.ExecuteAsync();
-            return exec;
+            return (await deleted & exec) == true ? "Success" : "Failed";
         }
     }
 }
