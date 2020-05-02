@@ -1,12 +1,12 @@
 # UnityChatApi
 Realtime web server for chat app (Unity3d)
 
-__Scope__<Br>
+##Scope<Br>
 
 This is the API that will be powering a Unity3D chat client.The client will be able to connect to chatrooms and communicate with other 
 users.
 
-__Communication__<br>
+##Communication<br>
 
 Since the chat client will exchange data with the server the preffered protocol of communication is via websockets.<br>
 For each chat client , the server will open a websocket in order to facilitate message exchange.
@@ -25,3 +25,4 @@ For each connected client there will be :
                          connected client will have a designated queue where messages from all channels will be pushed.
  * A consumer task - The purpose of this task is to pop messages from the aforementioned queue and write them over the websocket.If there are no messages in the queue
                      the task will wait (thanks to the `BlockingCollection` class provided by MSFT)
+![Schema](Docs/Schema.png)
