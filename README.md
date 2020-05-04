@@ -1,7 +1,7 @@
 # PubSubSharp
 Realtime web server for chat app featuring 
 
-![Redis](https://www.google.com/url?sa=i&url=https%3A%2F%2Fcodereviewvideos.com%2Fblog%2Fsymfony-with-redis%2F&psig=AOvVaw33orV6N_wytl2NZYdDDNnF&ust=1588698042940000&source=images&cd=vfe&ved=0CAIQjRxqFwoTCOCP2sbXmukCFQAAAAAdAAAAABAD "LoGO")
+![](https://codereviewvideos.com/blog/wp-content/uploads/2017/10/redis-logo.png)
 
 ##Scope<Br>
 
