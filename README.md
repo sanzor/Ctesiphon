@@ -1,4 +1,4 @@
-# UnityChatApi
+# PubSubServer
 Realtime web server for chat app 
 
 
