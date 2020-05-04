@@ -1,6 +1,6 @@
 # PubSubSharp
 Realtime web server for chat app featuring 
-
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/.NET_Core_Logo.svg/1200px-.NET_Core_Logo.svg.png | 250x250)
 ![](https://codereviewvideos.com/blog/wp-content/uploads/2017/10/redis-logo.png)
 ![](https://miro.medium.com/max/1300/1*4BtGcPz3JauG9qsNXzLMXA.gif)
 
