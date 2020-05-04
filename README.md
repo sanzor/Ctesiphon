@@ -1,4 +1,4 @@
-# PubSubServer
+# PubSubSharp
 Realtime web server for chat app 
 
 
