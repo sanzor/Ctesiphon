@@ -1,7 +1,7 @@
 # PubSubSharp
 Realtime web server for chat app featuring 
 
-![](/Docs/redis.png | width=100)   
+![](/Docs/redis.png |width=100)   
 ![](/Docs/ws.png)
 
 ##Scope<Br>
