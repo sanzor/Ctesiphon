@@ -1,8 +1,10 @@
 # PubSubSharp
 Realtime web server for chat app featuring<br><br>
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/.NET_Core_Logo.svg/1200px-.NET_Core_Logo.svg.png=250x250)
-![](https://codereviewvideos.com/blog/wp-content/uploads/2017/10/redis-logo.png)
-![](https://miro.medium.com/max/1300/1*4BtGcPz3JauG9qsNXzLMXA.gif)
+|<img src="https://codereviewvideos.com/blog/wp-content/uploads/2017/10/redis-logo.png" width=250 height=250/> |
+<img src="https://miro.medium.com/max/1300/1*4BtGcPz3JauG9qsNXzLMXA.gif" width=450 height=300/> | 
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="https://miro.medium.com/max/735/1*1oxw1WMb2loCAwVwTSgNjQ.jpeg"  width=500 height=200/><br>
+
+     
 
 ## Scope<Br>
 
