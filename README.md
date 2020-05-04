@@ -6,10 +6,13 @@ Realtime web server for chat app featuring<br><br>
 
      
 
-## Scope<Br>
+## What it is and what it does <Br>
 
-This is the API that will be powering a Unity3D chat client.The client will be able to connect to chatrooms and communicate with other 
-users.
+This is a `ASP .NET Core 3.1` realtime server suitable for powering up IoT,Games,Collaboration or Messaging apps.
+
+## Prerequisites
+ - [**Redis**](https://redis.io)  will be used for its [`pub-sub`](https://redis.io/topics/pubsub) functionality.More details can be found [here](https://redis.io/) 
+ - [Simple WebSocket Client](https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo) I prefer to use it for testing purposes , before you can actually hook a real `websocket` client.
 
 ## Communication<br>
 
