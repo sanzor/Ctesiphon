@@ -2,6 +2,7 @@
 Realtime web server for chat app featuring 
 
 ![](https://codereviewvideos.com/blog/wp-content/uploads/2017/10/redis-logo.png)
+![](https://miro.medium.com/max/1300/1*4BtGcPz3JauG9qsNXzLMXA.gif=331x341)
 
 ##Scope<Br>
 
