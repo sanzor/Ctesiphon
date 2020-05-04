@@ -25,4 +25,4 @@ For each connected client there will be :
                          connected client will have a designated queue where messages from all channels will be pushed.
  * A consumer task - The purpose of this task is to pop messages from the aforementioned queue and write them over the websocket.If there are no messages in the queue
                      the task will wait (thanks to the `BlockingCollection` class provided by MSFT)
-![Schema](Docs/Schema.png)
+![Schema](/Docs/Schema.png)
