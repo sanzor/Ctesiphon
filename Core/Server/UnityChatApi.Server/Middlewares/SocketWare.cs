@@ -7,12 +7,12 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityChatApi.DataAccess;
-using UnityChatApi.Extensions;
-using UnityChatApi.Interfaces;
-using UnityChatApi.Server.Core;
+using PubSub.DataAccess;
+using PubSub.Extensions;
+using PubSub.Interfaces;
+using PubSub.Server.Core;
 
-namespace UnityChatApi.Server {
+namespace PubSub.Server {
     public class SocketWare {
         private RequestDelegate next;
         private RedisStore store;

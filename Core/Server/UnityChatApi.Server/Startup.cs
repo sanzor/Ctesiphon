@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using UnityChatApi.Conventions;
+using PubSub.Conventions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -10,9 +10,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using UnityChatApi.DataAccess;
+using PubSub.DataAccess;
 
-namespace UnityChatApi.Server {
+namespace PubSub.Server {
     public class Startup {
         public Startup(IConfiguration configuration) {
             Configuration = configuration;

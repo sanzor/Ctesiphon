@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UnityChatApi.Routes {
+namespace PubSub.Routes {
     public  class Routes {
         public  const string GETALL = "get-all";
     }

@@ -9,7 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\UnityChatApi.Models\UnityChatApi.Models.csproj" />
+    <ProjectReference Include="..\UnityChatApi.Models\PubSub.Models.csproj" />
   </ItemGroup>
 
 </Project>

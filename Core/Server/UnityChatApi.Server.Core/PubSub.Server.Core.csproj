@@ -10,8 +10,8 @@
     <PackageReference Include="Serilog" Version="2.9.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Commons\UnityChatApi.DataAccess\UnityChatApi.DataAccess.csproj" />
-    <ProjectReference Include="..\..\Commons\UnityChatApi.Extensions\UnityChatApi.Extensions.csproj" />
-    <ProjectReference Include="..\..\Commons\UnityChatApi.Interfaces\UnityChatApi.Interfaces.csproj" />
+    <ProjectReference Include="..\..\Commons\UnityChatApi.DataAccess\PubSub.DataAccess.csproj" />
+    <ProjectReference Include="..\..\Commons\UnityChatApi.Extensions\PubSub.Extensions.csproj" />
+    <ProjectReference Include="..\..\Commons\UnityChatApi.Interfaces\PubSub.Interfaces.csproj" />
   </ItemGroup>
 </Project>

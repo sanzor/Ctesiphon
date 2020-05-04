@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace UnityChatApi.DataAccess {
+namespace PubSub.DataAccess {
     public sealed class RedisStore {
         public ConnectionMultiplexer Connection;
         public RedisStore(string connectionString) {

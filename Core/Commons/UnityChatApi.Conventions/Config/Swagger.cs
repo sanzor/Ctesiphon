@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
 
-namespace UnityChatApi.Conventions {
+namespace PubSub.Conventions {
     public class Swagger {
         [JsonPropertyName("title")]
         public string Title { get; set; }

@@ -4,17 +4,17 @@ using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
-using UnityChatApi.DataAccess;
-using UnityChatApi.Extensions;
-using UnityChatApi.Models;
+using PubSub.DataAccess;
+using PubSub.Extensions;
+using PubSub.Models;
 using StackExchange.Redis;
 using System.Collections.Concurrent;
 using System.Buffers;
 using System.Threading;
 using Serilog.Core;
-using UnityChatApi.Interfaces;
+using PubSub.Interfaces;
 
-namespace UnityChatApi.Server.Core {
+namespace PubSub.Server.Core {
     public sealed class ChatClient {
 
         private Task writeTask;

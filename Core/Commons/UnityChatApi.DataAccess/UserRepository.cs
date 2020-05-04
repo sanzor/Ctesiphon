@@ -1,9 +1,9 @@
 ﻿using StackExchange.Redis;
 using System;
 using System.Threading.Tasks;
-using UnityChatApi.Models;
+using PubSub.Models;
 
-namespace UnityChatApi.DataAccess {
+namespace PubSub.DataAccess {
     public class UserRepository {
         private RedisStore store;
         private Func<User, string> ToKey = x => $"user:{x.Id}";

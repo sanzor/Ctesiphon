@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace UnityChatApi.Models {
+namespace PubSub.Models {
     public class ChatMessage {
         public enum DISCRIMINATOR {
             SUBSCRIBE=0,

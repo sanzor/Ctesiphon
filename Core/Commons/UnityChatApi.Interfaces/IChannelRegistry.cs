@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace UnityChatApi.Interfaces {
+namespace PubSub.Interfaces {
     public interface IChannelRegistry {
         Task<IEnumerable<string>> GetSubscribedChannelsAsync(string userId);
         Task<string> RegisterChannelAsync(string userId, string channelId);

@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using UnityChatApi.DataAccess;
-using UnityChatApi.Interfaces;
+using PubSub.DataAccess;
+using PubSub.Interfaces;
 
-namespace UnityChatApi.Server.Core {
+namespace PubSub.Server.Core {
     public class ChannelHandlerService:IChannelRegistry {
         private RedisStore store;
         public ChannelHandlerService(RedisStore store) {

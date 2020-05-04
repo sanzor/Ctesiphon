@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using UnityChatApi.Models;
+using PubSub.Models;
 
-namespace UnityChatApi.DataAccess {
+namespace PubSub.DataAccess {
     public class RedisAdapter {
         public static User Adapt(HashEntry[] entries) {
             var user = new User {

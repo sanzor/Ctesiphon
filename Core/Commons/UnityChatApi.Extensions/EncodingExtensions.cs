@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 
-namespace UnityChatApi.Extensions {
+namespace PubSub.Extensions {
     public static class EncodingExtensions {
         public static async Task<T> ReceiveAndDecode<T>(this WebSocket socket, int bufferSize = 1024) {
             byte[] rawInput = ArrayPool<byte>.Shared.Rent(bufferSize);
