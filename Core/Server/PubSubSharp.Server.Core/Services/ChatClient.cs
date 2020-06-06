@@ -47,11 +47,7 @@ namespace PubSubSharp.Server.Core {
         private async Task WriteLoopAsync() {
             try {
                 while (true) {
-                    //receive some message from socket
                     var message = await this.socket.ReceiveAndDecode<ChatMessage>();
-
-                    //find list of subscribed channels and if it does not exist subscribe to it
-                    //publish message to target channel
                     await HandleMessageAsync(message);
                 }
             } catch (Exception ex) {
@@ -65,7 +61,6 @@ namespace PubSubSharp.Server.Core {
         private async Task HandleMessageAsync(ChatMessage msg) {
 
             switch (msg.Kind) {
-
                 case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub,msg); break;
                 case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
                 case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
@@ -108,13 +103,10 @@ namespace PubSubSharp.Server.Core {
                     //send the message on the websocket
                     await this.socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
                 }
-
             } catch (Exception ex) {
 
                 throw;
             }
-            //mb user cancellation token on socket
-           
         }
 
 

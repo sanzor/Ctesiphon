@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PubSubSharp.DataAccess;
+using PubSubSharp.Interfaces;
+using PubSubSharp.Server.Core;
 
 namespace PubSubSharp.Server {
     public class Startup {
@@ -28,6 +30,7 @@ namespace PubSubSharp.Server {
             services.AddControllers();
             RedisStore store = new RedisStore(config.Redis.Con);
             services.AddSingleton(store);
+            services.AddTransient<IChannelRegistry, ChannelHandlerService>();
             services.AddSwaggerGen(x => {
                 x.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
                     Title = config.Swagger.Title,
