@@ -10,7 +10,7 @@
   },
   "profiles": {
     
-    "ASPT.Server": {
+    "PubSubSharp.Server": {
       "commandName": "Project",
       "launchBrowser": false,
       "applicationUrl": "http://localhost:8300",

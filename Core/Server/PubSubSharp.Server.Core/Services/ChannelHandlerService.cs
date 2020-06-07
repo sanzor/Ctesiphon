@@ -8,14 +8,14 @@ using PubSubSharp.DataAccess;
 using PubSubSharp.Interfaces;
 
 namespace PubSubSharp.Server.Core {
-    public class ChannelHandlerService:IChannelRegistry {
+    public class ChannelHandlerService:IChannelSubscriptionService {
         private RedisStore store;
         public ChannelHandlerService(RedisStore store) {
             this.store = store;
         }
         public async Task<IEnumerable<string>> GetSubscribedChannelsAsync(string userId) {
-            var list = await this.store.Database.HashGetAllAsync(userId);
-            return list.Select(x => x.Value.ToString());
+            var list = await this.store.Database.HashKeysAsync(userId);
+            return list.Select(x => x.ToString());
         }
         public async Task<string> RegisterChannelAsync(string userId, string channelId) {
             ITransaction tran = this.store.Database.CreateTransaction();

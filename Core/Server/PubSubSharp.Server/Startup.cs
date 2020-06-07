@@ -30,7 +30,7 @@ namespace PubSubSharp.Server {
             services.AddControllers();
             RedisStore store = new RedisStore(config.Redis.Con);
             services.AddSingleton(store);
-            services.AddTransient<IChannelRegistry, ChannelHandlerService>();
+            services.AddTransient<IChannelSubscriptionService, ChannelHandlerService>();
             services.AddSwaggerGen(x => {
                 x.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
                     Title = config.Swagger.Title,

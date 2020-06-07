@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace PubSubSharp.Interfaces {
-    public interface IChannelRegistry {
+    public interface IChannelSubscriptionService {
         Task<IEnumerable<string>> GetSubscribedChannelsAsync(string userId);
         Task<string> RegisterChannelAsync(string userId, string channelId);
         Task<string> UnregisterChannelAsync(string userId, string channelId);

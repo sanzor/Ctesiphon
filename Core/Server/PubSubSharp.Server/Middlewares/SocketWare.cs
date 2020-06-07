@@ -16,8 +16,8 @@ namespace PubSubSharp.Server {
     public class SocketWare {
         private RequestDelegate next;
         private RedisStore store;
-        private IChannelRegistry channelRegistry;
-        public SocketWare(RequestDelegate _next,RedisStore store,IChannelRegistry channelRegistry) {
+        private IChannelSubscriptionService channelRegistry;
+        public SocketWare(RequestDelegate _next,RedisStore store,IChannelSubscriptionService channelRegistry) {
             this.next = _next;
             this.store = store;
             this.channelRegistry = channelRegistry;

@@ -20,10 +20,13 @@ namespace PubSubSharp.Extensions {
         public static string MakeId() {
             return Guid.NewGuid().ToString();
         }
-        public static T Decode<T>(this Memory<byte> payload) {
-            string rawString = Encoding.UTF8.GetString(payload.ToArray());
-
+        public static T Decode<T>(this byte[] data) {
+            string rawString = Encoding.UTF8.GetString(data);
             T result = JsonSerializer.Deserialize<T>(rawString);
+            return result;
+        }
+        public static T Decode<T>(this Memory<byte> payload) {
+            var result = Decode<T>(payload.ToArray());
             return result;
         }
         public static ReadOnlyMemory<byte> Encode<T>(this T data) {
