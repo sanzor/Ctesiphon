@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace PubSubSharp.Extensions {
     public static class EncodingExtensions {
-        public static async Task<T> ReceiveAndDecode<T>(this WebSocket socket, int bufferSize = 1024) {
+        public static async Task<T> ReceiveAndDecode<T>(this WebSocket socket,CancellationToken token, int bufferSize = 1024) {
             byte[] rawInput = ArrayPool<byte>.Shared.Rent(bufferSize);
-            var rec = await socket.ReceiveAsync(rawInput, CancellationToken.None);
+            var rec = await socket.ReceiveAsync(rawInput, token);
             var result = rawInput.AsMemory().Slice(0, rec.Count).Decode<T>();
             ArrayPool<byte>.Shared.Return(rawInput);
             return result;

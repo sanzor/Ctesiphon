@@ -29,7 +29,7 @@ namespace PubSubSharp.Server.Core {
 
         private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
         private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
-        private CancellationTokenSource cts = new CancellationTokenSource();
+        
         private const int LCK_TIMEOUT = 1000;
 
         public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService) {
@@ -39,71 +39,80 @@ namespace PubSubSharp.Server.Core {
         }
 
         public async Task RunAsync() {
+            CancellationTokenSource cts = new CancellationTokenSource();
             try {
                 this.sub = this.store.Connection.GetSubscriber();
                 this.writeTask = Task.Run(async () => await ReceiveLoopAsync(cts.Token), cts.Token);
                 this.popperTask = Task.Run(async () => await PopLoopAsync(cts.Token), cts.Token);
                 await Task.WhenAll(writeTask, popperTask);
             } catch (AggregateException ex) {
-
-            }
-        }
-        private async Task PopLoopAsync(CancellationToken token) {
-
-            while (true) {
-                try {
-                    if (token.IsCancellationRequested) {
-                        break;
-                    }
-                    var data = this.queue.Take();
-                    var bytes = Encoding.UTF8.GetBytes(data);
-                    await this.socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
-                } catch (Exception ex) {
-                    log.Error($"Error\tReason:{ex.Message}");
+                var error = ex.GetBaseException();
+                if (!(socket.State == WebSocketState.Closed)) {
+                    await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, error.Message, cts.Token);
                 }
             }
         }
+        private async Task PopLoopAsync(CancellationToken token) {
+            using (var linked = CancellationTokenSource.CreateLinkedTokenSource(token)) {
+                linked.CancelAfter(TimeSpan.FromSeconds(15));
+                while (true) {
+                    try {
+                        token.ThrowIfCancellationRequested();
+                        var data = this.queue.Take();
+                        var bytes = Encoding.UTF8.GetBytes(data);
+                        await this.socket.SendAsync(data, WebSocketMessageType.Text, true, token);
+                    } catch (TaskCanceledException cancelledExc) {
+                        log.Error($"Cancel was issued");
+                        break;
+                    } catch (Exception ex) {
+                        log.Error($"Error\tReason:{ex.Message}");
+                        break;
+                    }
+                }
+            }
+              
+        }
 
         private async Task ReceiveLoopAsync(CancellationToken token) {
+            
+          
             ChatMessage message = null;
             var str = new ChatMessage().ToJson();
             while (true) {
                 try {
-                    if (token.IsCancellationRequested) {
-                        break;
+                    token.ThrowIfCancellationRequested();
+                    using (var linked = CancellationTokenSource.CreateLinkedTokenSource(token)) {
+                        linked.CancelAfter(TimeSpan.FromSeconds(30));
+                        message = await this.socket.ReceiveAndDecode<ChatMessage>(linked.Token);
                     }
-                    message = await this.socket.ReceiveAndDecode<ChatMessage>();
-                   
+
+                } catch (OperationCanceledException ex) {
+                    log.Information($"Cancel was issued");
                 } catch (Exception ex) {
-                    log.Error($"Error in write loop:{ex.Message}");
-                    if (!(socket.State == WebSocketState.Closed)) {
-                        var errorMessage = $"Closing socket for client:{message.SenderID}\tReason:{ex.Message}";
-                        log.Debug(errorMessage);
-                        await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, errorMessage, CancellationToken.None);
-                    }
+                    log.Error($"Error in write loop.\tReason{ex.Message}");
                     throw;
                 }
                 try {
-                    await HandleMessageAsync(message);
+                    await HandleMessageAsync(message,token);
                 } catch (Exception ex) {
-                    if(new[] { DISCRIMINATOR.SUBSCRIBE, DISCRIMINATOR.UNSUBSCRIBE }.Contains(message.Kind)) {
+                    if (new[] { DISCRIMINATOR.SUBSCRIBE, DISCRIMINATOR.UNSUBSCRIBE }.Contains(message.Kind)) {
                         log.Error($"User:{message.SenderID} could not:{message.Kind}\tReason:{ex.Message}");
                         throw;
                     }
-                    
+
                 }
 
             }
         }
 
-        private async Task HandleMessageAsync(ChatMessage msg) {
+        private async Task HandleMessageAsync(ChatMessage msg,CancellationToken token) {
             switch (msg.Kind) {
-                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub, msg); break;
+                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub, msg,token); break;
                 case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: await this.HandleUnsubscribeAsync(sub, msg); break;
                 case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
             }
         }
-        private async Task HandleSubscribeAsync(ISubscriber sub, ChatMessage message) {
+        private async Task HandleSubscribeAsync(ISubscriber sub, ChatMessage message,CancellationToken token) {
             var result = await this.channelService.RegisterChannelAsync(message.SenderID, message.Channel);
             ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
             @lock.TryEnterWriteLock(LCK_TIMEOUT);
@@ -114,7 +123,7 @@ namespace PubSubSharp.Server.Core {
             } catch (Exception ex) {
                 chatMsg.Value = $"Could not subscribe\tReason:{ex.Message}";
             } finally {
-                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
+                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, token);
                 if (@lock.IsWriteLockHeld) {
                     @lock.ExitWriteLock();
                 }
