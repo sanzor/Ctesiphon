@@ -17,15 +17,18 @@ namespace Client {
             CreatePipeline();
         }
         private void CreatePipeline() {
+
             this.initBlock = new BufferBlock<byte[]>(new DataflowBlockOptions { TaskScheduler = TaskScheduler.Default });
-            var tsfMessageBlock = new TransformBlock<byte[], ChatMessage>(y => {
+            ExecutionDataflowBlockOptions executionOptions = new ExecutionDataflowBlockOptions { TaskScheduler = TaskScheduler.Current };
+            DataflowLinkOptions options = new DataflowLinkOptions { PropagateCompletion = true };
+            TransformBlock<byte[], ChatMessage> tsfMessageBlock = new TransformBlock<byte[], ChatMessage>(y => {
                 var message = Encoding.UTF8.GetString(y);
                 var data = JsonSerializer.Deserialize<ChatMessage>(message);
                 Console.WriteLine(y.ToJson());
                 return data;
-            },new ExecutionDataflowBlockOptions {TaskScheduler=TaskScheduler.Default});
+            }, executionOptions);
 
-            var batchBlock = new BatchBlock<ChatMessage>(10);
+            BatchBlock<ChatMessage> batchBlock = new BatchBlock<ChatMessage>(10);
 
 
             this.actionBlock = new ActionBlock<ChatMessage[]>(y => {
@@ -34,15 +37,9 @@ namespace Client {
                     Trace.WriteLine($"{item.IssuedAt},{item.SenderID},{item.Value}");
                 }
             });
-
             this.initBlock.LinkTo(tsfMessageBlock);
-            tsfMessageBlock.LinkTo(batchBlock, new DataflowLinkOptions { PropagateCompletion = true });
-            try {
-                batchBlock.LinkTo(this.actionBlock);
-
-            } catch (Exception ex) {
-                throw;
-            }
+            tsfMessageBlock.LinkTo(batchBlock, options);
+            batchBlock.LinkTo(this.actionBlock);
 
         }
         public void Post(byte[] message) {

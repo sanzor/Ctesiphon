@@ -28,9 +28,9 @@ namespace PubSubSharp.Server.Core {
         private ILogger log = Log.ForContext<ChatMessage>();
 
         private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
-        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+        private SemaphoreSlim @lock = new SemaphoreSlim(1);
         
-        private const int LCK_TIMEOUT = 1000;
+        private const double LCK_TIMEOUT = 1000;
 
         public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService) {
             this.socket = socket;
@@ -72,7 +72,6 @@ namespace PubSubSharp.Server.Core {
             }
               
         }
-
         private async Task ReceiveLoopAsync(CancellationToken token) {
             
           
@@ -115,7 +114,7 @@ namespace PubSubSharp.Server.Core {
         private async Task HandleSubscribeAsync(ISubscriber sub, ChatMessage message,CancellationToken token) {
             var result = await this.channelService.RegisterChannelAsync(message.SenderID, message.Channel);
             ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
-            @lock.TryEnterWriteLock(LCK_TIMEOUT);
+            await @lock.WaitAsync(token);
             try {
                 if (result == "Success") {
                     await this.sub.SubscribeAsync(message.Channel, OnMessage);
@@ -123,10 +122,8 @@ namespace PubSubSharp.Server.Core {
             } catch (Exception ex) {
                 chatMsg.Value = $"Could not subscribe\tReason:{ex.Message}";
             } finally {
-                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, token);
-                if (@lock.IsWriteLockHeld) {
-                    @lock.ExitWriteLock();
-                }
+                //await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, token);
+                @lock.Release();
             }
 
         }
