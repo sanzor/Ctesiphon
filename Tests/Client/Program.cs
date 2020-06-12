@@ -42,7 +42,7 @@ namespace Client {
                         try {
                             loopCTS.Token.ThrowIfCancellationRequested();
                             Memory<byte> data = ArrayPool<byte>.Shared.Rent(1024);
-                            var wsResult = await clientsocket.ReceiveAsync(data.ToArray(), CancellationToken.None);
+                            var wsResult = await clientsocket.ReceiveAsync(data, CancellationToken.None);
                             
                             var str = Encoding.UTF8.GetString(data.Slice(0, wsResult.Count).ToArray());
                             var message = JsonSerializer.Deserialize<ChatMessage>(str);

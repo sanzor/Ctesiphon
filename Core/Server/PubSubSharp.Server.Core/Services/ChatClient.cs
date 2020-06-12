@@ -122,7 +122,8 @@ namespace PubSubSharp.Server.Core {
             } catch (Exception ex) {
                 chatMsg.Value = $"Could not subscribe\tReason:{ex.Message}";
             } finally {
-                //await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, token);
+                var mem = chatMsg.Encode();
+                await this.socket.SendAsync(mem, WebSocketMessageType.Text, true, token);
                 @lock.Release();
             }
 
