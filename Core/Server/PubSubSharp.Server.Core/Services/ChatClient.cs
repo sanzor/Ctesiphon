@@ -82,7 +82,7 @@ namespace PubSubSharp.Server.Core {
                     token.ThrowIfCancellationRequested();
                     using (var linked = CancellationTokenSource.CreateLinkedTokenSource(token)) {
                         linked.CancelAfter(TimeSpan.FromSeconds(30));
-                        message = await this.socket.ReceiveAndDecode<ChatMessage>(linked.Token);
+                        message = await this.socket.ReceiveAndDecodeAsync<ChatMessage>(linked.Token);
                     }
 
                 } catch (OperationCanceledException ex) {
