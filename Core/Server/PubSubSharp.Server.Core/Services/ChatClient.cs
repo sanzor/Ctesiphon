@@ -81,7 +81,7 @@ namespace PubSubSharp.Server.Core {
                 try {
                     token.ThrowIfCancellationRequested();
                     using (var linked = CancellationTokenSource.CreateLinkedTokenSource(token)) {
-                        linked.CancelAfter(TimeSpan.FromSeconds(30));
+                       // linked.CancelAfter(TimeSpan.FromSeconds(30));
                         message = await this.socket.ReceiveAndDecodeAsync<ChatMessage>(linked.Token);
                     }
 
@@ -128,13 +128,14 @@ namespace PubSubSharp.Server.Core {
             }
 
         }
-        private async Task HandleUnsubscribeAsync(ISubscriber sub, ChatMessage message) {
-            await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
-        }
         private void OnMessage(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
             this.queue.Add(value);
         }
+        private async Task HandleUnsubscribeAsync(ISubscriber sub, ChatMessage message) {
+            await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
+        }
+        
 
 
 

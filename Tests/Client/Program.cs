@@ -7,6 +7,7 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Net.WebSockets;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -36,24 +37,20 @@ namespace Client {
             await clientsocket.SendAsync(new ChatMessage { SenderID = "Adisor", Kind = ChatMessage.DISCRIMINATOR.SUBSCRIBE, Channel = TEST_CHANNEL }.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
             PubSubClient client = new PubSubClient(clientsocket);
 
-            try {
-                Task t = Task.Run(async () => {
-                    while (true) {
-                        try {
-                            loopCTS.Token.ThrowIfCancellationRequested();
-                            Memory<byte> data = ArrayPool<byte>.Shared.Rent(1024);
-                            var message=await clientsocket.ReceiveAndDecodeAsync<ChatMessage>(loopCTS.Token);
-                            
-                            
-                            
-                        } catch (Exception ex) {
-                            if (!(clientsocket.State == WebSocketState.Closed)) {
-                              
-                            }
-                           
-                        }
-                    }
-                }, loopCTS.Token);
+            var obb = Observable.FromAsync(async (cts) => {
+                Memory<byte> data = ArrayPool<byte>.Shared.Rent(1024);
+                try {
+                    var x = await clientsocket.ReceiveAndDecodeAsync<ChatMessage>(loopCTS.Token);
+                    return x;
+                } catch (Exception ex) {
+                    Console.WriteLine("Failed to deserialize");
+                    throw;
+                }
+
+            }).Repeat();
+            obb.Subscribe(x => Console.WriteLine(x.ToJson()), x => Console.WriteLine("Done"), CancellationToken.None);
+            
+            try { 
                 while (!(Console.ReadKey().Key == ConsoleKey.Q)) ;
                 loopCTS.Cancel();
             } catch (OperationCanceledException ex) {

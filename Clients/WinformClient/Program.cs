@@ -1,3 +1,4 @@
+using PubSubSharp.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace WinformClient {
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            ConcurrentHashSet state = new ConcurrentHashSet();
+            ConcurrentHashSet<ChatMessage> state = new ConcurrentHashSet<ChatMessage>();
 
             Application.Run(new ChatForm(state));
         }

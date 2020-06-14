@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Core\Commons\PubSubSharp.Extensions\PubSubSharp.Extensions.csproj" />
     <ProjectReference Include="..\..\Core\Commons\PubSubSharp.Models\PubSubSharp.Models.csproj" />
   </ItemGroup>
 

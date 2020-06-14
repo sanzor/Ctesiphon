@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace WinformClient {
     public interface IChatClient {
-        Task<bool> SubscribeAsync(string channel);
-        Task<bool> UnSubscribeAsync(string channel);
+       
+        Task<bool> TrySubscribeAsync(string channelName,out Channel channel);
         IEnumerable<Channel> GetRegisteredChannels();
 
-        IObservable<ChatMessage> GetObservable();
+        IObservable<ChatMessage> GetSocketObservable();
     }
 }

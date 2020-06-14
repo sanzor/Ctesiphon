@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PubSubSharp.Models;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -7,9 +8,11 @@ namespace WinformClient {
     public class Channel : IEquatable<Channel> {
         public readonly string Name;
         public DateTime SubscribedAt { get; }
-        public Channel(string name) {
+        private IObservable<ChatMessage> obs;
+        public Channel(string name,IObservable<ChatMessage>obs) {
             this.Name = name;
             this.SubscribedAt = DateTime.UtcNow;
+            this.obs = obs;
         }
 
         public bool Equals([AllowNull] Channel other) {
