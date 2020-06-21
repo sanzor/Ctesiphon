@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Serilog" Version="2.9.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.1.30" />
+    <PackageReference Include="System.Reactive" Version="4.4.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Commons\PubSubSharp.DataAccess\PubSubSharp.DataAccess.csproj" />

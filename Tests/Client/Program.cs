@@ -20,6 +20,7 @@ namespace Client {
     class Program {
         private const string URL = "ws://localhost:8600";
         private const string TEST_CHANNEL = "test";
+        private const string DEF_MESSAGE = "{\"Kind\":3,\"SenderID\":\"Adisor\",\"Channel\":\"test\",\"IssuedAt\":\"0001-01-01T00:00:00\",\"Value\":null}";
         private static EventWaitHandle handle = new EventWaitHandle(false, EventResetMode.AutoReset);
         public static string ToCurrentAssemblyRootPath(string target) {
             var path = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().FullName).FullName, target);
@@ -48,6 +49,13 @@ namespace Client {
             CancellationTokenSource loopCTS = new CancellationTokenSource();
             await clientsocket.ConnectAsync(new Uri(URL), CancellationToken.None);
             await clientsocket.SendAsync(new ChatMessage { SenderID = "Adisor", Kind = ChatMessage.DISCRIMINATOR.SUBSCRIBE, Channel = TEST_CHANNEL }.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
+            var received=await clientsocket.ReceiveAndDecodeAsync<ChatMessage>(CancellationToken.None);
+            await clientsocket.SendAsync(Encoding.UTF8.GetBytes(DEF_MESSAGE),WebSocketMessageType.Text,true,CancellationToken.None);
+            var first=await clientsocket.ReceiveAndDecodeAsync<ChatMessage>(CancellationToken.None);
+            
+            if (received.Kind != ChatMessage.DISCRIMINATOR.SERVER) {
+                throw new NotSupportedException();
+            }
             PubSubClient client = new PubSubClient(clientsocket);
 
 
