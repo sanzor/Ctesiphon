@@ -49,7 +49,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Clients", "Clients", "{7AFC
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WinformClient", "Clients\WinformClient\WinformClient.csproj", "{7D020B04-189D-4D0A-822A-F9F5908ED51F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClientLib", "Clients\ClientLib\ClientLib.csproj", "{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClientLib", "Clients\ClientLib\ClientLib.csproj", "{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Observables", "Experiments\Observables\Observables.csproj", "{8EAA419A-CAB5-4F52-830B-F783542E830F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -101,6 +103,10 @@ Global
 		{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EAA419A-CAB5-4F52-830B-F783542E830F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EAA419A-CAB5-4F52-830B-F783542E830F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EAA419A-CAB5-4F52-830B-F783542E830F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EAA419A-CAB5-4F52-830B-F783542E830F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -125,6 +131,7 @@ Global
 		{A45FEEA8-9BF9-4B20-8D81-EAA62A243CB0} = {E0DD91DE-10E1-4A58-A9DC-3EF888208A35}
 		{7D020B04-189D-4D0A-822A-F9F5908ED51F} = {7AFCF035-DDB1-453E-8521-319AC9D0C81B}
 		{7E14E8CC-A30B-4ABE-B567-D4E12D9B85E6} = {7AFCF035-DDB1-453E-8521-319AC9D0C81B}
+		{8EAA419A-CAB5-4F52-830B-F783542E830F} = {EBCF0E04-3359-452F-B9DB-31C1069C0B03}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6822DF34-5EDB-48B5-BF60-2F1067FE2B66}
