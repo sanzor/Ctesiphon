@@ -7,16 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.5" />
     <PackageReference Include="System.Reactive" Version="4.4.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="State\" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Commons\PubSubSharp.Extensions\PubSubSharp.Extensions.csproj" />
     <ProjectReference Include="..\..\Core\Commons\PubSubSharp.Models\PubSubSharp.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Producer\" />
   </ItemGroup>
 
 </Project>

@@ -11,16 +11,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using PubSubSharp.Extensions;
 
 namespace PubSubSharp.Server {
     public class Program {
-        public static string ToCurrentAssemblyRootPath(string target) {
-            var path = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().FullName).FullName, target);
-            return path;
-        }
+       
         public static void Main(string[] args) {
 
-            var logPath = ToCurrentAssemblyRootPath(Constants.LOG_FILE);
+            var logPath = Constants.LOG_FILE.ToCurrentAssemblyRootPath();
 
             Log.Logger = new LoggerConfiguration()
             .WriteTo.File(logPath, outputTemplate: Constants.LOG_OUTPUT_TEMPLATE)
@@ -32,7 +30,7 @@ namespace PubSubSharp.Server {
         }
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
-            var configPath = ToCurrentAssemblyRootPath(Constants.CONFIG_FILE);
+            var configPath = Constants.CONFIG_FILE.ToCurrentAssemblyRootPath();
             //  Log.Information($"Using config at path: {configPath}");
             IConfiguration config = new ConfigurationBuilder().AddJsonFile(configPath).Build();
 

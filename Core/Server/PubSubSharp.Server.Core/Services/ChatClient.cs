@@ -17,6 +17,8 @@ using static PubSubSharp.Models.ChatMessage;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive;
+using
+using System.IO;
 
 namespace PubSubSharp.Server.Core {
     public sealed class ChatClient {
@@ -29,8 +31,8 @@ namespace PubSubSharp.Server.Core {
         private ISubscriber sub;
         private ILogger log = Log.ForContext<ChatMessage>();
         private IObservable<ChatMessage> obs;
-        private SemaphoreSlim @lock = new SemaphoreSlim();
-
+        private SemaphoreSlim @lock = new SemaphoreSlim(1);
+        private const int RETRY = 3;
 
 
         private const double LCK_TIMEOUT = 1000;
@@ -39,27 +41,33 @@ namespace PubSubSharp.Server.Core {
             this.socket = socket;
             this.store = store;
             this.channelService = channelService;
+
         }
 
+
         public async Task RunAsync() {
-            CancellationTokenSource cts = new CancellationTokenSource();
-            var asyncObs = Observable.Defer<ChatMessage>(() => Observable.FromAsync<ChatMessage>(async () => {
-                var message = await this.socket.ReceiveAndDecodeAsync<ChatMessage>(CancellationToken.None);
-                return message;
-            }));
-            this.obs = asyncObs.Repeat();
-            this.obs.Subscribe(onNext: async(msg) => {
-                await this.HandleMessageAsync(msg, CancellationToken.None);
-            },
-            onCompleted: () => {
-            },
-            onError: err => {
-            });
+            IEnumerable<IObservable<ChatMessage>> GetEndless(WebSocket ws) {
+                Memory<byte> data = ArrayPool<byte>.Shared.Rent(1024);
+                while (true) {
+                    var obs = Observable.FromAsync<byte[]>(async () => {
+                        var result = await ws.ReceiveAsync(data, CancellationToken.None);
+                        var payload = data.Slice(0, result.Count);
+                        return payload.ToArray();
+                    }).Select(raw => {
+                        var msg = raw.Decode<ChatMessage>();
+                        return msg;
+                    }).Repeat();
+                    yield return obs;
+                }
+            }
 
             try {
+                var endless = GetEndless(this.socket).Catch();
+                
+
                 this.sub = this.store.Connection.GetSubscriber();
 
-                this.writeTask = Task.Run(async () => await ReceiveLoopAsync(cts.Token), cts.Token);
+
 
                 await writeTask;
             } catch (AggregateException ex) {
@@ -103,7 +111,7 @@ namespace PubSubSharp.Server.Core {
         }
         private void OnMessage(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
-            this.queue.Add(value);
+            //this.queue.Add(value);
         }
         private async Task HandleUnsubscribeAsync(ChatMessage message) {
             await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
