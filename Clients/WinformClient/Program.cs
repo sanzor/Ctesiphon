@@ -7,6 +7,8 @@ using System.Net.WebSockets;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using PubSubSharp.Extensions;
+using System.Reactive.Linq;
+using System.Threading;
 
 namespace WinformClient {
     static class Program {
@@ -33,7 +35,8 @@ namespace WinformClient {
             Application.SetCompatibleTextRenderingDefault(false);
             var config = GetConfiguration();
             ClientWebSocket socket = new ClientWebSocket();
-
+            await socket.ConnectAsync(new Uri(config.ServerUrl), CancellationToken.None);
+           
             State state = new State(config, socket);
 
             Application.Run(new ChatForm(state));
