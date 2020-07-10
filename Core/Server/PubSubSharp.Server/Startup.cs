@@ -16,7 +16,7 @@ using PubSubSharp.Server.Core;
 
 namespace PubSubSharp.Server {
     public class Startup {
-        public Startup(IConfiguration configuration) {
+        public Startup(IConfiguration configuration,IHostApplicationLifetime appLifetime) {
             Configuration = configuration;
         }
 

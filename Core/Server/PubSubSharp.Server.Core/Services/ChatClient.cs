@@ -17,68 +17,91 @@ using static PubSubSharp.Models.ChatMessage;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reactive;
-using
+
 using System.IO;
+using System.Text.Json;
 
 namespace PubSubSharp.Server.Core {
     public sealed class ChatClient {
 
-        private Task writeTask;
+        
 
         private WebSocket socket;
         private RedisStore store;
         private IChannelSubscriptionService channelService;
         private ISubscriber sub;
         private ILogger log = Log.ForContext<ChatMessage>();
-        private IObservable<ChatMessage> obs;
+        private BlockingCollection<ChatMessage> queue = new BlockingCollection<ChatMessage>();
         private SemaphoreSlim @lock = new SemaphoreSlim(1);
-        private const int RETRY = 3;
+        private Task dequeueTask;
+        private CancellationToken lifetimeToken;
 
 
         private const double LCK_TIMEOUT = 1000;
 
-        public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService) {
+        public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService,CancellationToken token) {
             this.socket = socket;
             this.store = store;
             this.channelService = channelService;
+            this.lifetimeToken = token;
 
         }
 
-
-        public async Task RunAsync() {
-            IEnumerable<IObservable<ChatMessage>> GetEndless(WebSocket ws) {
-                Memory<byte> data = ArrayPool<byte>.Shared.Rent(1024);
-                while (true) {
-                    var obs = Observable.FromAsync<byte[]>(async () => {
-                        var result = await ws.ReceiveAsync(data, CancellationToken.None);
-                        var payload = data.Slice(0, result.Count);
-                        return payload.ToArray();
-                    }).Select(raw => {
-                        var msg = raw.Decode<ChatMessage>();
-                        return msg;
-                    }).Repeat();
-                    yield return obs;
+        private async Task DequeueLoopAsync() {
+            foreach (var item in this.queue.GetConsumingEnumerable()) {
+                try {
+                    lifetimeToken.ThrowIfCancellationRequested();
+                    await this.socket.SendAsync(item.Encode(), WebSocketMessageType.Text, true, lifetimeToken);
+                } catch (Exception) {
+                    break;
                 }
-            }
-
-            try {
-                var endless = GetEndless(this.socket).Catch();
                 
-
+            }
+        }
+        public async Task RunAsync() {
+            try {
                 this.sub = this.store.Connection.GetSubscriber();
+                await LoopAsync(lifetimeToken);
+                this.dequeueTask = Task.Run(DequeueLoopAsync, this.lifetimeToken);
 
-
-
-                await writeTask;
             } catch (AggregateException ex) {
                 var error = ex.GetBaseException();
                 if (!(socket.State == WebSocketState.Closed)) {
-                    await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, error.Message, cts.Token);
+                    await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, error.Message,lifetimeToken);
                 }
             }
         }
+        private async Task LoopAsync(CancellationToken token) {
+            Memory<byte> raw=ArrayPool<byte>.Shared.Rent(200);
+            ValueWebSocketReceiveResult rez;
+            while (socket.State.HasFlag(WebSocketState.Open)) {
+                try {
+                    token.ThrowIfCancellationRequested();
+                    rez = await this.socket.ReceiveAsync(raw, token);
+                } catch (Exception ex) {
 
-        private async Task HandleMessageAsync(ChatMessage msg, CancellationToken token) {
+                    break;
+                }
+                try {
+                    var data = Encoding.UTF8.GetString(raw.Slice(0, rez.Count).ToArray());
+                    var message = JsonSerializer.Deserialize<ChatMessage>(data);
+                    await HandleSocketMessageAsync(message, token);
+                } catch (Exception ex) {
+                    continue;
+                }
+            }
+            if(socket.State!=WebSocketState.Closed && socket.State != WebSocketState.Aborted) {
+                try {
+                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "socket closed", lifetimeToken);
+                } catch (Exception ex) {
+
+                   
+                }
+            }
+            
+        }
+
+        private async Task HandleSocketMessageAsync(ChatMessage msg, CancellationToken token) {
             switch (msg.Kind) {
                 case ChatMessage.DISCRIMINATOR.SUBSCRIBE:
                     await HandleSubscribeAsync(msg, token);
@@ -97,7 +120,7 @@ namespace PubSubSharp.Server.Core {
             await @lock.WaitAsync(token);
             try {
                 if (result == "Success") {
-                    await this.sub.SubscribeAsync(message.Channel, OnMessage);
+                    await this.sub.SubscribeAsync(message.Channel, HandleMessageAsync);
                 }
             } catch (Exception ex) {
                 log.Information($"Client:[{chatMsg.SenderID}] encountered error when subscribing.\tReason:{ex.Message}");
@@ -109,9 +132,15 @@ namespace PubSubSharp.Server.Core {
             }
 
         }
-        private void OnMessage(RedisChannel channel, RedisValue value) {
+        private void HandleMessageAsync(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
-            //this.queue.Add(value);
+            try {
+                var data = JsonSerializer.Deserialize<ChatMessage>(value);
+                this.queue.Add(data);
+            } catch (Exception ex) {
+
+            }
+           
         }
         private async Task HandleUnsubscribeAsync(ChatMessage message) {
             await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
