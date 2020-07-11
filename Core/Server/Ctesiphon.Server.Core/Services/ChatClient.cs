@@ -24,7 +24,7 @@ using System.Text.Json;
 namespace Ctesiphon.Server.Core {
     public sealed class ChatClient {
 
-        
+
 
         private WebSocket socket;
         private RedisStore store;
@@ -39,7 +39,7 @@ namespace Ctesiphon.Server.Core {
 
         private const double LCK_TIMEOUT = 1000;
 
-        public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService,CancellationToken token) {
+        public ChatClient(WebSocket socket, RedisStore store, IChannelSubscriptionService channelService, CancellationToken token) {
             this.socket = socket;
             this.store = store;
             this.channelService = channelService;
@@ -55,7 +55,7 @@ namespace Ctesiphon.Server.Core {
                 } catch (Exception) {
                     break;
                 }
-                
+
             }
         }
         public async Task RunAsync() {
@@ -64,15 +64,16 @@ namespace Ctesiphon.Server.Core {
                 await LoopAsync(lifetimeToken);
                 this.dequeueTask = Task.Run(DequeueLoopAsync, this.lifetimeToken);
 
+
             } catch (AggregateException ex) {
                 var error = ex.GetBaseException();
                 if (!(socket.State == WebSocketState.Closed)) {
-                    await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, error.Message,lifetimeToken);
+                    await socket.CloseAsync(WebSocketCloseStatus.InternalServerError, error.Message, lifetimeToken);
                 }
             }
         }
         private async Task LoopAsync(CancellationToken token) {
-            Memory<byte> raw=ArrayPool<byte>.Shared.Rent(200);
+            Memory<byte> raw = ArrayPool<byte>.Shared.Rent(200);
             ValueWebSocketReceiveResult rez;
             while (socket.State.HasFlag(WebSocketState.Open)) {
                 try {
@@ -90,34 +91,35 @@ namespace Ctesiphon.Server.Core {
                     continue;
                 }
             }
-            if(socket.State!=WebSocketState.Closed && socket.State != WebSocketState.Aborted) {
+            if (socket.State != WebSocketState.Closed && socket.State != WebSocketState.Aborted) {
                 try {
                     await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "socket closed", lifetimeToken);
                 } catch (Exception ex) {
 
-                   
+
                 }
             }
-            
+
         }
 
         private async Task HandleSocketMessageAsync(ChatMessage msg, CancellationToken token) {
             switch (msg.Kind) {
                 case ChatMessage.DISCRIMINATOR.SUBSCRIBE:
-                    await HandleSubscribeAsync(msg, token);
+                    var serverMsg=await HandleSubscribeAsync(msg, token);
+                    var sentServerMsg = await this.sub.PublishAsync(msg.Channel,serverMsg.ToJson());
                     break;
                 case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE:
-                    await this.HandleUnsubscribeAsync(msg);
+                    var smsg=await this.HandleUnsubscribeAsync(msg);
+                    var sentSvMsg = await this.sub.PublishAsync(msg.Channel, smsg.ToJson());
                     break;
                 case ChatMessage.DISCRIMINATOR.MESSAGE:
                     var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson());
                     break;
             }
         }
-        private async Task HandleSubscribeAsync(ChatMessage message, CancellationToken token) {
+        private async Task<ChatMessage> HandleSubscribeAsync(ChatMessage message, CancellationToken token) {
             var result = await this.channelService.RegisterChannelAsync(message.SenderID, message.Channel);
             ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
-            await @lock.WaitAsync(token);
             try {
                 if (result == "Success") {
                     await this.sub.SubscribeAsync(message.Channel, HandleMessageAsync);
@@ -125,13 +127,11 @@ namespace Ctesiphon.Server.Core {
             } catch (Exception ex) {
                 log.Information($"Client:[{chatMsg.SenderID}] encountered error when subscribing.\tReason:{ex.Message}");
                 chatMsg.Value = $"Could not subscribe\tReason:{ex.Message}";
-            } finally {
-                var mem = chatMsg.Encode();
-                await this.socket.SendAsync(mem, WebSocketMessageType.Text, true, token);
-                @lock.Release();
             }
-
+            var mem = chatMsg.Encode();
+            return chatMsg;
         }
+
         private void HandleMessageAsync(RedisChannel channel, RedisValue value) {
             log.Information($"Received:{value}\tfrom channel:{channel}");
             try {
@@ -140,10 +140,12 @@ namespace Ctesiphon.Server.Core {
             } catch (Exception ex) {
 
             }
-           
+
         }
-        private async Task HandleUnsubscribeAsync(ChatMessage message) {
-            await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
+        private async Task<ChatMessage> HandleUnsubscribeAsync(ChatMessage message) {
+            string response=await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
+            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = response };
+            return chatMsg;
         }
 
 

@@ -16,5 +16,6 @@ namespace Ctesiphon.Models {
         public string Channel { get; set; }
         public DateTime IssuedAt { get; set; }
         public string Value { get; set; }
+        public Dictionary<string,string> Metadata { get; set; }
     }
 }

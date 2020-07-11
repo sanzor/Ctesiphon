@@ -14,12 +14,7 @@ namespace WinformClient {
         public SubscriptionProvider(ClientWebSocket socket) {
             this.socket = socket;
         }
-        public bool TryGetMessageStream(string channel,out IObservable<ChatMessage>messageStream) {
-            if(!this.subscribeMap.TryGetValue(channel,out messageStream)) {
-                return false;
-            }
-            return true;
-        }
+       
         public bool Subscribe(string channelName, string senderId="winformClient",CancellationToken token=default) {
             if(this.subscribeMap.TryGetValue(channelName,out IObservable<ChatMessage> observable)) {
                 return false;

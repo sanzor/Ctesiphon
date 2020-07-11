@@ -17,6 +17,8 @@ namespace WinformClient {
         public ClientWebSocket socket { get; }
        
         public IObservable<ChatMessage> SourceStream { get; private set; }
+        public IObservable<ChatMessage> ServerStream { get; private set; }
+        private Queue<TaskCompletionSource<ChatMessage>> queue = new Queue<TaskCompletionSource<ChatMessage>>();
         private Dictionary<string, IObservable<ChatMessage>> subscribeMap = new Dictionary<string, IObservable<ChatMessage>>();
 
         private void BuildSourceStream(CancellationToken token=default) {
@@ -31,13 +33,17 @@ namespace WinformClient {
                 } catch (Exception ex) {
 
                     return null;
-
-
                 }
             }).Where(x => x != null).Repeat();
+            this.ServerStream = this.SourceStream.Where(x => x.Kind == ChatMessage.DISCRIMINATOR.SERVER);
+            this.ServerStream.Subscribe(onNext: (x) => {
+                var tcs = this.queue.Dequeue();
+                tcs.SetResult(x);
+            });
         }
 
         public async Task<bool> ConnectAsync(string uri, CancellationToken token = default) {
+            
             if (this.socket.State == WebSocketState.Open) {
                 return true;
             }
@@ -49,7 +55,8 @@ namespace WinformClient {
                 
                 await this.socket.ConnectAsync(new Uri(uri),token);
                 bool state = this.socket.State == WebSocketState.Open;
-              
+                this.BuildSourceStream(token);
+
                 return this.socket.State == WebSocketState.Open;
             } catch (Exception ex) {
 
@@ -70,26 +77,40 @@ namespace WinformClient {
                 }
             }
         }
-
-        public bool Subscribe(string channelName, string senderId = "winformClient", CancellationToken token = default) {
-            if (this.subscribeMap.TryGetValue(channelName, out IObservable<ChatMessage> observable)) {
+        public bool TryGetMessageStream(string channel, out IObservable<ChatMessage> messageStream) {
+            if (!this.subscribeMap.TryGetValue(channel, out messageStream)) {
                 return false;
+            }
+            return true;
+        }
+
+
+
+
+
+        public  Task<ChatMessage> SubscribeAsync(string channelName, string senderId = "winformClient", CancellationToken token = default) {
+            if (this.subscribeMap.TryGetValue(channelName, out IObservable<ChatMessage> observable)) {
+                return null;
             }
             var subscribemessage = new ChatMessage { Kind = ChatMessage.DISCRIMINATOR.SUBSCRIBE, Channel = channelName, IssuedAt = DateTime.UtcNow, SenderID = senderId };
             this.socket.SendAsync(subscribemessage.Encode(), WebSocketMessageType.Text, true, token);
+            TaskCompletionSource<ChatMessage> tcs = new TaskCompletionSource<ChatMessage>();
+            this.queue.Enqueue(tcs);
+            return tcs.Task;
 
         }
-        public bool Unsubscribe(string channelName, string senderId = "winformClient") {
+        public Task<ChatMessage> Unsubscribe(string channelName, string senderId = "winformClient",CancellationToken token=default) {
             if (!this.subscribeMap.TryGetValue(channelName, out IObservable<ChatMessage> observable)) {
-                return false;
+                return null;
             }
             var subscribemessage = new ChatMessage { Kind = ChatMessage.DISCRIMINATOR.UNSUBSCRIBE, Channel = channelName, IssuedAt = DateTime.UtcNow, SenderID = senderId };
-            this.socket.SendAsync(subscribemessage.Encode(), WebSocketMessageType.Text, true,
+            this.socket.SendAsync(subscribemessage.Encode(), WebSocketMessageType.Text, true, token);
+            TaskCompletionSource<ChatMessage> tcs = new TaskCompletionSource<ChatMessage>();
+            return tcs.Task;
         }
 
         public Client(Config config, ClientWebSocket socket) {
             this.socket = socket;
-
             this.Config = config;
         }
 
