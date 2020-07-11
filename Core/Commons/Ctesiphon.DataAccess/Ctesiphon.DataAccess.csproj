@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" Version="2.1.30" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ctesiphon.Models\Ctesiphon.Models.csproj" />
+    <ProjectReference Include="..\PubSubSharp.Models\PubSubSharp.Models.csproj" />
+  </ItemGroup>
+
+</Project>
