@@ -13,6 +13,7 @@ namespace WinformClient {
         private ClientWebSocket connectedSocket;
         private CancellationTokenSource cts = new CancellationTokenSource();
         private IObservable<ChatMessage> mainObservable;
+        private Queue<TaskCompletionSource<ChatMessage>> responseQueue = new Queue<TaskCompletionSource<ChatMessage>>();
         private Task mainLoop;
         
         public ChatClient(ClientWebSocket connectedSocket) {

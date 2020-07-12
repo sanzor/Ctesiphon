@@ -60,7 +60,7 @@ namespace WinformClient {
             };
             this.subscribeBtn.Click += (s, e) => {
 
-            }
+            };
 
             this.subscribeBtn.Click += (x, e) => this.subscribeTb.Text = "";
         }

@@ -143,8 +143,10 @@ namespace Ctesiphon.Server.Core {
 
         }
         private async Task<ChatMessage> HandleUnsubscribeAsync(ChatMessage message) {
-            string response=await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
-            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = response };
+            string response = await this.channelService.UnregisterChannelAsync(message.SenderID, message.Channel);
+            var dict = new Dictionary<string, string>();
+            dict.Add("subsribeResult", response);
+            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = response,Metadata=dict };
             return chatMsg;
         }
 
