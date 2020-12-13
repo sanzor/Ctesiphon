@@ -13,111 +13,95 @@ using System.Threading;
 using Serilog.Core;
 using PubSubSharp.Interfaces;
 using StackExchange.Redis;
+using System.Text.Json;
+
 
 namespace PubSubSharp.Server.Core {
     public sealed class ChatClient {
 
-        private Task writeTask;
-        private Task popperTask;
+        private ILogger log = Log.ForContext<WSMessage>();
+        private BlockingCollection<string> queue = new BlockingCollection<string>();
+        private CancellationTokenSource cts = new CancellationTokenSource();
+
+
+        private Task inboundTask;
+        private Task outboundTask;
         private WebSocket socket;
-        private RedisStore store;
-        private IChannelRegistry channelRegistryService;
-        private ISubscriber sub;
-        private ILogger log = Log.ForContext<ChatMessage>();
-        private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
-        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
-        private const int LCK_TIMEOUT = 1000;
-        public ChatClient(WebSocket socket, RedisStore store,IChannelRegistry channelRegistry) {
+        private RedisStore redisStore;
+        private const int BUFFER_SIZE = 1024;
+        
+        private ISubscriber redisSubscriber;
+        
+       
+        public ChatClient(WebSocket socket, RedisStore store) {
             this.socket = socket;
-            this.store = store;
-            this.channelRegistryService = channelRegistry;
+            this.redisStore = store;
+            this.redisSubscriber = store.Connection.GetSubscriber();
         }
 
         public async Task RunAsync() {
             try {
-                this.sub = this.store.Connection.GetSubscriber();
-                this.writeTask = Task.Run(async () => await WriteLoopAsync());
-                this.popperTask = Task.Run(async () => await PopLoopAsync());
-                await Task.WhenAll(writeTask, popperTask);
+                this.inboundTask = Task.Run(async () => await InboundLoopAsync(cts.Token), cts.Token);
+                this.outboundTask = Task.Run(async () => await OutboundLoopAsync(cts.Token), cts.Token);
+                await Task.WhenAny(inboundTask, outboundTask);
+            } catch (OperationCanceledException ex) {
+                log.Information("Task was cancelled");
             } catch (Exception ex) {
-                throw;
-            }
-
-        }
-        private async Task WriteLoopAsync() {
-            try {
-                while (true) {
-                    //receive some message from socket
-                    var message = await this.socket.ReceiveAndDecode<ChatMessage>();
-
-                    //find list of subscribed channels and if it does not exist subscribe to it
-                    //publish message to target channel
-                    await HandleMessageAsync(message);
-                }
-            } catch (Exception ex) {
-
-                throw;
-            }
-
-           
-
-        }
-        private async Task HandleMessageAsync(ChatMessage msg) {
-
-            switch (msg.Kind) {
-
-                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub,msg); break;
-                case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
-                case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
-                default: throw new NotSupportedException();
-            }
-        }
-        private async Task HandleSubscribeAsync(ISubscriber sub,ChatMessage message) {
-            var result = await this.channelRegistryService.RegisterChannelAsync(message.SenderID, message.Channel);
-
-            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
-            @lock.TryEnterWriteLock(LCK_TIMEOUT);
-            try {
-                if (result == "Success") {
-                    await this.sub.SubscribeAsync(message.Channel,OnMessage);
-                }
-            } catch (Exception ex) {
-                chatMsg.Value = "Could not subscribe";
+                log.Error($"{ex.Message}");
             } finally {
-                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
-                @lock.ExitWriteLock();
+                await this.redisSubscriber?.UnsubscribeAllAsync();
             }
-            
-        }
-        private async Task HandleUnsubscribeAsync(ISubscriber sub,ChatMessage message) {
 
         }
-        private void OnMessage(RedisChannel channel, RedisValue value) {
-            log.Information($"Received:{value}\tfrom channel:{channel}");
-            this.queue.Add(value);
-        }
-        private void OnUnsubscribe(RedisChannel channel, RedisValue value) {
-            log.Information($"Ending subscription to channel:{channel}");
-        }
-        private async Task PopLoopAsync() {
-            try {
-                while (true) {
-                    //pop a message from the queue that is filled by channel delegates
-                    var data = this.queue.Take();
-                    var bytes = Encoding.UTF8.GetBytes(data);
-                    //send the message on the websocket
-                    await this.socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
+        private async Task OutboundLoopAsync(CancellationToken token=default) {
+            while (true) {
+                token.ThrowIfCancellationRequested();
+                if (!(socket.State == WebSocketState.Open)) {
+                    return;
                 }
-
-            } catch (Exception ex) {
-
-                throw;
+                string rawMessage=this.queue.Take();
+                byte[] bytes = Encoding.UTF8.GetBytes(rawMessage);
+                await this.socket.SendAsync(bytes, WebSocketMessageType.Text, true, token);
             }
-            //mb user cancellation token on socket
-           
         }
 
-
+        private async Task InboundLoopAsync(CancellationToken token=default) {
+            byte[] inboundBuffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);
+            while (true) {
+                token.ThrowIfCancellationRequested();
+                if (!(socket.State == WebSocketState.Open)) {
+                    ArrayPool<byte>.Shared.Return(inboundBuffer);
+                    return;
+                }
+                try {
+                    WebSocketReceiveResult wsResult= await socket.ReceiveAsync(inboundBuffer, token);
+                    byte[] incomingBytes = inboundBuffer[0..wsResult.Count];
+                    WSMessage message = JsonSerializer.Deserialize<WSMessage>(Encoding.UTF8.GetString(incomingBytes));
+                    await this.HandleMessageAsync(message);
+                } catch (Exception ex) {
+                    log.Error(ex.Message);
+                }
+            }
+        }
+        private async Task HandleMessageAsync(WSMessage message) {
+            switch (message.Kind) {
+                case WSMessage.DISCRIMINATOR.SUBSCRIBE:
+                    ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    await this.redisSubscriber.UnsubscribeAsync(subscribeMessage.Channel);
+                    await this.redisSubscriber.SubscribeAsync(subscribeMessage.Channel, (channel, message) =>this.queue.Add(message));
+                    break;
+                case WSMessage.DISCRIMINATOR.UNSUBSCRIBE:
+                    ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    await this.redisSubscriber.UnsubscribeAsync(unsubscribeMessage.Channel);
+                    break;
+                case WSMessage.DISCRIMINATOR.MESSAGE:
+                    ChatMessage chatMessage = JsonSerializer.Deserialize<ChatMessage>(message.Payload);
+                    await this.redisSubscriber.PublishAsync(chatMessage.Channel, $"{chatMessage.SenderId}:{chatMessage.Message}");
+                    break;
+            }
+        }
+       
+       
 
     }
 }

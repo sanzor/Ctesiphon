@@ -22,32 +22,37 @@ namespace PubSubSharp.Server {
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services) {
+            try {
+                Config config = this.Configuration.GetSection("config").Get<Config>();
+                services.Configure<Config>(this.Configuration.GetSection("config"));
+                services.AddControllers();
+                RedisStore store = new RedisStore(config.Redis.Con);
+                services.AddSingleton(store);
+                services.AddSwaggerGen(x => {
+                    x.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
+                        Title = config.Swagger.Title,
+                        Version = config.Swagger.Version,
+                        Description = config.Swagger.Description,
+                        Contact = new Microsoft.OpenApi.Models.OpenApiContact {
+                            Name = "Bercovici Adrian",
+                            Email = "bercovici.adrian.simon@gmail.com"
+                        },
+                    });
+                    x.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement());
 
-            Config config = this.Configuration.GetSection("config").Get<Config>();
-            services.Configure<Config>(this.Configuration.GetSection("config"));
-            services.AddControllers();
-            RedisStore store = new RedisStore(config.Redis.Con);
-            services.AddSingleton(store);
-            services.AddSwaggerGen(x => {
-                x.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo {
-                    Title = config.Swagger.Title,
-                    Version = config.Swagger.Version,
-                    Description = config.Swagger.Description,
-                    Contact = new Microsoft.OpenApi.Models.OpenApiContact {
-                        Name = "Bercovici Adrian",
-                        Email = "bercovici.adrian.simon@gmail.com"
-                    },
+                    x.AddSecurityDefinition("sec", new Microsoft.OpenApi.Models.OpenApiSecurityScheme {
+                        Description = "logging system for the Leplace App",
+                        Flows = new Microsoft.OpenApi.Models.OpenApiOAuthFlows {
+                            Implicit = new Microsoft.OpenApi.Models.OpenApiOAuthFlow(),
+
+                        }
+                    });
                 });
-                x.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement());
+            } catch (Exception ex) {
 
-                x.AddSecurityDefinition("sec", new Microsoft.OpenApi.Models.OpenApiSecurityScheme {
-                    Description = "logging system for the Leplace App",
-                    Flows = new Microsoft.OpenApi.Models.OpenApiOAuthFlows {
-                        Implicit = new Microsoft.OpenApi.Models.OpenApiOAuthFlow(),
-
-                    }
-                });
-            });
+                throw;
+            }
+           
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -67,7 +72,8 @@ namespace PubSubSharp.Server {
                 endpoints.MapControllers();
             });
             app.UseWebSockets();
-            app.UseMiddleware<SocketWare>();
+            app.MapWhen(y => y.WebSockets.IsWebSocketRequest, a => a.UseMiddleware<SocketWare>());
+            
         }
     }
 }

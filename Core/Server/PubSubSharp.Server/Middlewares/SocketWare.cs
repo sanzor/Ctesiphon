@@ -11,33 +11,30 @@ using PubSubSharp.DataAccess;
 using PubSubSharp.Extensions;
 using PubSubSharp.Interfaces;
 using PubSubSharp.Server.Core;
+using Serilog;
 
 namespace PubSubSharp.Server {
     public class SocketWare {
         private RequestDelegate next;
         private RedisStore store;
-        private IChannelRegistry channelRegistry;
-        public SocketWare(RequestDelegate _next,RedisStore store,IChannelRegistry channelRegistry) {
+        private ILogger logger = Log.ForContext<SocketWare>();
+        public SocketWare(RequestDelegate _next,RedisStore store) {
             this.next = _next;
             this.store = store;
-            this.channelRegistry = channelRegistry;
-           
         }
         public async Task Invoke(HttpContext context) {
             if (!context.WebSockets.IsWebSocketRequest) {
                 return;
             }
-            var socket=await context.WebSockets.AcceptWebSocketAsync();
-            await RunAsync(socket);
-        }
-        private async Task RunAsync(WebSocket socket) {
             try {
-                var client = new ChatClient(socket, this.store,this.channelRegistry);
+                var socket = await context.WebSockets.AcceptWebSocketAsync();
+                var client = new ChatClient(socket, this.store);
                 await client.RunAsync();
             } catch (Exception ex) {
-
+                logger.Error($"Error:{ex.Message}");
                 throw;
             }
+           
             
         }
         

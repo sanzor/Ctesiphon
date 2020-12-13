@@ -12,7 +12,7 @@ namespace PubSubSharp.Extensions {
         public static async Task<T> ReceiveAndDecode<T>(this WebSocket socket, int bufferSize = 1024) {
             byte[] rawInput = ArrayPool<byte>.Shared.Rent(bufferSize);
             var rec = await socket.ReceiveAsync(rawInput, CancellationToken.None);
-            var result = rawInput.AsMemory().Slice(0, rec.Count).Decode<T>();
+            var result = rawInput.AsMemory().Slice(0, rec.Count).FromBytes<T>();
             ArrayPool<byte>.Shared.Return(rawInput);
             return result;
         }
@@ -20,15 +20,14 @@ namespace PubSubSharp.Extensions {
         public static string MakeId() {
             return Guid.NewGuid().ToString();
         }
-        public static T Decode<T>(this Memory<byte> payload) {
+        public static T FromBytes<T>(this Memory<byte> payload) {
             string rawString = Encoding.UTF8.GetString(payload.ToArray());
 
             T result = JsonSerializer.Deserialize<T>(rawString);
             return result;
         }
-        public static ReadOnlyMemory<byte> Encode<T>(this T data) {
-            string rawString = JsonSerializer.Serialize(data);
-            ReadOnlyMemory<byte> payload = Encoding.UTF8.GetBytes(rawString);
+        public static ReadOnlyMemory<byte> ToBytes<T>(this T data) {
+            ReadOnlyMemory<byte> payload = Encoding.UTF8.GetBytes(data.ToJson());
             return payload;
         }
         public static string ToJson<T>(this T obj) {
