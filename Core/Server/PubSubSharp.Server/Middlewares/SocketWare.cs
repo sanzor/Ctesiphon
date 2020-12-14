@@ -28,8 +28,8 @@ namespace PubSubSharp.Server {
             }
             try {
                 var socket = await context.WebSockets.AcceptWebSocketAsync();
-                var client = new ChatClient(socket, this.store);
-                await client.RunAsync();
+                var client = new ChatClient(this.store);
+                await client.RunAsync(socket);
             } catch (Exception ex) {
                 logger.Error($"Error:{ex.Message}");
                 throw;
