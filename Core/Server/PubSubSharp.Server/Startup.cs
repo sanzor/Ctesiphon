@@ -11,6 +11,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PubSubSharp.DataAccess;
+using System.Net.WebSockets;
+using StackExchange.Redis;
+using System.Threading;
+using System.Text;
 
 namespace PubSubSharp.Server {
     public class Startup {
@@ -52,11 +56,20 @@ namespace PubSubSharp.Server {
 
                 throw;
             }
-           
-        }
 
+        }
+        public class SocketWrapper {
+            public SocketWrapper(WebSocket socket, Guid guid) {
+                this.socket = socket;
+                this.Guid = guid;
+            }
+            public readonly WebSocket socket;
+            public readonly Guid Guid;
+        }
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
+            //ConnectionMultiplexer connectionMultiplexer = ConnectionMultiplexer.Connect("localhost:6379");
+
             if (env.IsDevelopment()) {
                 app.UseDeveloperExceptionPage();
             }
@@ -67,13 +80,55 @@ namespace PubSubSharp.Server {
             app.UseRouting();
 
             app.UseAuthorization();
-           
+
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllers();
             });
             app.UseWebSockets();
             app.MapWhen(y => y.WebSockets.IsWebSocketRequest, a => a.UseMiddleware<SocketWare>());
-            
+            //app.Use(async (con, req) => {
+
+            //    if (!con.WebSockets.IsWebSocketRequest) {
+            //        await req();
+            //    }
+
+            //    //accepting ws
+            //    WebSocket socket = await con.WebSockets.AcceptWebSocketAsync();
+            //    var wrapper = new SocketWrapper(socket, Guid.NewGuid());
+            //    Console.WriteLine($"Main Guid :{wrapper.Guid}");
+            //    //connecting to redis
+              
+
+            //    ISubscriber subscriber = connectionMultiplexer.GetSubscriber();
+                
+
+
+            //    //subscribing to redis channel 
+            //    await subscriber.SubscribeAsync("mychannel",
+            //          async (chan, val) => {
+            //              Console.WriteLine($"Callback Guid :{wrapper.Guid}");
+            //              await wrapper.socket.SendAsync(Encoding.UTF8.GetBytes(val),
+            //                       WebSocketMessageType.Text,
+            //                       true,
+            //                       CancellationToken.None); //throws right here when user reconnects and publishes from the main Task the first message to redis
+            //          }, CommandFlags.FireAndForget);
+            //    var database = connectionMultiplexer.GetDatabase();
+            //    byte[] buffer = new byte[1024];
+
+            //    //loop for publishing client ws messages to redis channel
+            //    while (true) {
+            //        WebSocketReceiveResult result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+            //        if (result.MessageType == WebSocketMessageType.Close) {
+            //            await subscriber.UnsubscribeAsync("mychannel");
+            //            return;
+            //        }
+            //        var data = Encoding.UTF8.GetString(buffer[0..result.Count]);
+
+            //        await database.PublishAsync("mychannel", data);
+            //    }
+            //});
+
         }
     }
+
 }

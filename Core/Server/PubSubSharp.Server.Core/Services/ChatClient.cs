@@ -55,7 +55,7 @@ namespace PubSubSharp.Server.Core {
                 foreach (var item in this.queue.GetConsumingEnumerable()) {
                     token.ThrowIfCancellationRequested();
                     byte[] bytes = Encoding.UTF8.GetBytes(item);
-                    await socket.SendAsync(bytes, WebSocketMessageType.Text, true, token);
+                  //  await socket.SendAsync(bytes, WebSocketMessageType.Text, true, token);
                 }
             });
 
@@ -66,30 +66,35 @@ namespace PubSubSharp.Server.Core {
                     WebSocketReceiveResult wsResult = await socket.ReceiveAsync(inboundBuffer, token);
                     if (wsResult.MessageType == WebSocketMessageType.Close) {
                         ArrayPool<byte>.Shared.Return(inboundBuffer);
+                        await this.redisSubscriber.UnsubscribeAllAsync();
                         return;
                     }
-                    byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; //{"kind":0,"payload":"{\"senderId\":\"adrian\",\"channel\":\"4\",\"message\":\"hello\"}"}
+                    byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; //{"Kind":3,"Payload":"{\"SenderId\":\"adrian\",\"Channel\":\"4\",\"Message\":\"dan\"}"}
                     WSMessage message = JsonSerializer.Deserialize<WSMessage>(Encoding.UTF8.GetString(incomingBytes));
-                    await this.HandleMessageAsync(message);
+                    await this.HandleMessageAsync(message,socket);
                 } catch (Exception ex) {
                     log.Error(ex.Message);
                 }
             }
         }
-        private async Task HandleMessageAsync(WSMessage message) {
+        private async Task HandleMessageAsync(WSMessage message,WebSocket socket) {
             switch (message.Kind) {
                 case WSMessage.DISCRIMINATOR.SUBSCRIBE:
                     ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
                     await this.redisSubscriber.UnsubscribeAsync(subscribeMessage.Channel);
-                    await this.redisSubscriber.SubscribeAsync(subscribeMessage.Channel, (channel, message) => this.queue.Add(message));
+                    this.redisSubscriber.Subscribe(subscribeMessage.Channel, async(channel, message) => {
+                        byte[] bytes = Encoding.UTF8.GetBytes(message);
+                        await socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+                    });
                     break;
                 case WSMessage.DISCRIMINATOR.UNSUBSCRIBE:
                     ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
                     await this.redisSubscriber.UnsubscribeAsync(unsubscribeMessage.Channel);
+                    //this.queue.Add(unsubscribeMessage.ToJson());
                     break;
                 case WSMessage.DISCRIMINATOR.MESSAGE:
                     ChatMessage chatMessage = JsonSerializer.Deserialize<ChatMessage>(message.Payload);
-                    await this.redisSubscriber.PublishAsync(chatMessage.Channel, $"{chatMessage.SenderId}:{chatMessage.Message}");
+                    await this.redisSubscriber.PublishAsync(chatMessage.Channel, $"Channel:{chatMessage.Channel},Sender:{chatMessage.SenderId},Message:{chatMessage.Message}");
                     break;
             }
         }
