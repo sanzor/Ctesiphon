@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
-using PubSubSharp.DataAccess;
 using PubSubSharp.Extensions;
 using PubSubSharp.Models;
 using System.Collections.Concurrent;
@@ -13,108 +12,109 @@ using System.Threading;
 using Serilog.Core;
 using PubSubSharp.Interfaces;
 using StackExchange.Redis;
+using System.Text.Json;
+using PubSub.Server.Core;
 
 namespace PubSubSharp.Server.Core {
     public sealed class ChatClient {
+        private  const int BUFFER_SIZE = 1024;
 
-        private Task writeTask;
-        private Task popperTask;
-        private WebSocket socket;
-        private RedisStore store;
-        private IChannelRegistry channelRegistryService;
-        private ISubscriber sub;
-        private ILogger log = Log.ForContext<ChatMessage>();
-        private BlockingCollection<RedisValue> queue = new BlockingCollection<RedisValue>();
-        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
-        private const int LCK_TIMEOUT = 1000;
-        public ChatClient(WebSocket socket, RedisStore store,IChannelRegistry channelRegistry) {
-            this.socket = socket;
-            this.store = store;
-            this.channelRegistryService = channelRegistry;
-        }
 
-        public async Task RunAsync() {
-            try {
-                this.sub = this.store.Connection.GetSubscriber();
-                this.writeTask = Task.Run(async () => await WriteLoopAsync());
-                this.popperTask = Task.Run(async () => await PopLoopAsync());
-                await Task.WhenAll(writeTask, popperTask);
-            } catch (Exception ex) {
-                throw;
+        private ILogger log = Log.ForContext<ChatClient>();
+       
+        private State state;
+        private BlockingCollection<string> queue = new BlockingCollection<string>();
+
+
+        private Action<RedisChannel, RedisValue> onRedisMessageHandler = null;
+        public Action<RedisChannel, RedisValue> OnRedisMessageHandler {
+            get {
+                if (this.onRedisMessageHandler == null) {
+                    this.onRedisMessageHandler= new Action<RedisChannel, RedisValue>((channel, value) => this.queue.Add(value));
+                }
+                return this.onRedisMessageHandler;
             }
-
         }
-        private async Task WriteLoopAsync() {
-            try {
-                while (true) {
-                    //receive some message from socket
-                    var message = await this.socket.ReceiveAndDecode<ChatMessage>();
+       
+        public async Task RunAsync(WebSocket socket) {
+            this.state.outboundTask = Task.Run(async () => {
+                foreach (var item in this.queue.GetConsumingEnumerable()) {
+                    var bytes = Encoding.UTF8.GetBytes(item);
+                    await socket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            });
+            await this.InboundLoopAsync(socket);
+        }
+      
+        private async Task InboundLoopAsync(WebSocket socket, CancellationToken token = default) {
 
-                    //find list of subscribed channels and if it does not exist subscribe to it
-                    //publish message to target channel
-                    await HandleMessageAsync(message);
+            byte[] inboundBuffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);
+            while (true) {
+                token.ThrowIfCancellationRequested();
+                try {
+                    WebSocketReceiveResult wsResult = await socket.ReceiveAsync(inboundBuffer, token);
+                    if (wsResult.MessageType == WebSocketMessageType.Close) {
+                        ArrayPool<byte>.Shared.Return(inboundBuffer);
+                        await this.CleanupSessionAsync();
+                        return;
+                    }
+                    byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; //{"Kind":3,"Payload":"{\"SenderId\":\"adrian\",\"Channel\":\"4\",\"Message\":\"dan\"}"}
+                    WSMessage message = JsonSerializer.Deserialize<WSMessage>(Encoding.UTF8.GetString(incomingBytes));
+                    await this.HandleMessageAsync(message);
+                } catch (Exception ex) {
+                    log.Error(ex.Message);
+                } finally {
+
+                }
+            }
+        }
+        private async Task HandleMessageAsync(WSMessage message) {
+            switch (message.Kind) {
+
+                case WSMessage.DISCRIMINATOR.CLIENT__SUBSCRIBE:
+                    ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    if (await state.redisDB.HashExistsAsync(this.state.ClientId, subscribeMessage.Channel)) {
+                        queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"ALREADY SUBSCRIBED TO CHANNEL :{subscribeMessage.Channel}" }.ToJson());
+                        return;
+                    }
+                    await this.state.subscriber.SubscribeAsync(subscribeMessage.Channel, this.onRedisMessageHandler);
+                    await state.redisDB.HashSetAsync(subscribeMessage.ClientId, subscribeMessage.Channel, "set");
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_UNSUBSCRIBE:
+                    ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    bool deleted = await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel, CommandFlags.FireAndForget);
+                    if (!await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel, CommandFlags.FireAndForget)) {
+                        queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $" UNSUBSCRIBE UNSUCCESSFUL" }.ToJson());
+                        return;
+                    }
+                    await this.state.subscriber.UnsubscribeAsync(unsubscribeMessage.Channel, this.onRedisMessageHandler);
+                    queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $" UNSUBSCRIBE SUCCESSFUL" }.ToJson());
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_MESSAGE:
+                    ChatMessage chatMessage = JsonSerializer.Deserialize<ChatMessage>(message.Payload);
+                    await this.state.subscriber.PublishAsync(chatMessage.Channel, $"Channel:{chatMessage.Channel},Sender:{chatMessage.SenderId},Message:{chatMessage.Message}");
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_GET_CHANNELS:
+                    var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
+                    queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = channels.ToJson() }.ToJson() );
+                    break;
+            }
+        }
+        private async Task CleanupSessionAsync() {
+            try {
+                foreach (var channelHash in await this.state.redisDB.HashGetAllAsync(this.state.ClientId)) {
+                    await this.state.subscriber.UnsubscribeAsync(channelHash.Name.ToString(), this.onRedisMessageHandler);
                 }
             } catch (Exception ex) {
-
+                log.Error(ex.Message);
                 throw;
-            }
-
-           
-
-        }
-        private async Task HandleMessageAsync(ChatMessage msg) {
-
-            switch (msg.Kind) {
-
-                case ChatMessage.DISCRIMINATOR.SUBSCRIBE: await HandleSubscribeAsync(sub,msg); break;
-                case ChatMessage.DISCRIMINATOR.UNSUBSCRIBE: this.sub.Unsubscribe(msg.Channel, OnUnsubscribe); break;
-                case ChatMessage.DISCRIMINATOR.MESSAGE: var sent = await this.sub.PublishAsync(msg.Channel, msg.ToJson()); break;
-                default: throw new NotSupportedException();
-            }
-        }
-        private async Task HandleSubscribeAsync(ISubscriber sub,ChatMessage message) {
-            var result = await this.channelRegistryService.RegisterChannelAsync(message.SenderID, message.Channel);
-
-            ChatMessage chatMsg = new ChatMessage { Channel = message.Channel, Kind = ChatMessage.DISCRIMINATOR.SERVER, SenderID = message.SenderID, Value = result };
-            @lock.TryEnterWriteLock(LCK_TIMEOUT);
-            try {
-                if (result == "Success") {
-                    await this.sub.SubscribeAsync(message.Channel,OnMessage);
-                }
-            } catch (Exception ex) {
-                chatMsg.Value = "Could not subscribe";
-            } finally {
-                await this.socket.SendAsync(chatMsg.Encode(), WebSocketMessageType.Text, true, CancellationToken.None);
-                @lock.ExitWriteLock();
             }
             
         }
-        private async Task HandleUnsubscribeAsync(ISubscriber sub,ChatMessage message) {
+        public ChatClient(ConnectionMultiplexer mux) {
 
-        }
-        private void OnMessage(RedisChannel channel, RedisValue value) {
-            log.Information($"Received:{value}\tfrom channel:{channel}");
-            this.queue.Add(value);
-        }
-        private void OnUnsubscribe(RedisChannel channel, RedisValue value) {
-            log.Information($"Ending subscription to channel:{channel}");
-        }
-        private async Task PopLoopAsync() {
-            try {
-                while (true) {
-                    //pop a message from the queue that is filled by channel delegates
-                    var data = this.queue.Take();
-                    var bytes = Encoding.UTF8.GetBytes(data);
-                    //send the message on the websocket
-                    await this.socket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
-                }
-
-            } catch (Exception ex) {
-
-                throw;
-            }
-            //mb user cancellation token on socket
-           
+            this.state.subscriber = mux.GetSubscriber();
+            this.state.redisDB = mux.GetDatabase();
         }
 
 
