@@ -18,8 +18,6 @@ using PubSub.Server.Core;
 namespace PubSubSharp.Server.Core {
     public sealed class ChatClient {
         private  const int BUFFER_SIZE = 1024;
-
-
         private ILogger log = Log.ForContext<ChatClient>();
        
         private State state;
@@ -46,16 +44,14 @@ namespace PubSubSharp.Server.Core {
             await this.InboundLoopAsync(socket);
         }
       
-        private async Task InboundLoopAsync(WebSocket socket, CancellationToken token = default) {
+        private async Task InboundLoopAsync(WebSocket socket) {
 
             byte[] inboundBuffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);
             while (true) {
-                token.ThrowIfCancellationRequested();
                 try {
-                    WebSocketReceiveResult wsResult = await socket.ReceiveAsync(inboundBuffer, token);
+                    WebSocketReceiveResult wsResult = await socket.ReceiveAsync(inboundBuffer,CancellationToken.None);
                     if (wsResult.MessageType == WebSocketMessageType.Close) {
                         ArrayPool<byte>.Shared.Return(inboundBuffer);
-                        await this.CleanupSessionAsync();
                         return;
                     }
                     byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; //{"Kind":3,"Payload":"{\"SenderId\":\"adrian\",\"Channel\":\"4\",\"Message\":\"dan\"}"}
@@ -64,7 +60,7 @@ namespace PubSubSharp.Server.Core {
                 } catch (Exception ex) {
                     log.Error(ex.Message);
                 } finally {
-
+                    await this.CleanupSessionAsync();
                 }
             }
         }
@@ -72,13 +68,19 @@ namespace PubSubSharp.Server.Core {
             switch (message.Kind) {
 
                 case WSMessage.DISCRIMINATOR.CLIENT__SUBSCRIBE:
+                    
                     ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
-                    if (await state.redisDB.HashExistsAsync(this.state.ClientId, subscribeMessage.Channel)) {
-                        queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"ALREADY SUBSCRIBED TO CHANNEL :{subscribeMessage.Channel}" }.ToJson());
+                    if(subscribeMessage.ClientId!=this.state.ClientId && this.state.ClientId != null) {
+                        queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Error: ClientId mismatch ! " }.ToJson());
+                        return;
+                    }
+                    if (await state.redisDB.HashExistsAsync(this.state.ClientId=subscribeMessage.ClientId, subscribeMessage.Channel)) {
+                        queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Error: ALREADY SUBSCRIBED TO CHANNEL :{subscribeMessage.Channel}" }.ToJson());
                         return;
                     }
                     await this.state.subscriber.SubscribeAsync(subscribeMessage.Channel, this.onRedisMessageHandler);
                     await state.redisDB.HashSetAsync(subscribeMessage.ClientId, subscribeMessage.Channel, "set");
+                    queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Subscribed to channel :{subscribeMessage.Channel} SUCCESSFULLY !" }.ToJson());
                     break;
                 case WSMessage.DISCRIMINATOR.CLIENT_UNSUBSCRIBE:
                     ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
@@ -107,12 +109,10 @@ namespace PubSubSharp.Server.Core {
                 }
             } catch (Exception ex) {
                 log.Error(ex.Message);
-                throw;
             }
             
         }
         public ChatClient(ConnectionMultiplexer mux) {
-
             this.state.subscriber = mux.GetSubscriber();
             this.state.redisDB = mux.GetDatabase();
         }

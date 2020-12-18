@@ -11,7 +11,7 @@ namespace PubSubSharp.Models {
             CLIENT_GET_CHANNELS=4,
             SERVER__RESULT=100
         }
-
+        
         public DISCRIMINATOR Kind { get; set; }
         public string Payload { get; set; }
        
