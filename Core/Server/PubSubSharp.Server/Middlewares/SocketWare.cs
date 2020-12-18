@@ -7,7 +7,6 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PubSubSharp.DataAccess;
 using PubSubSharp.Extensions;
 using PubSubSharp.Interfaces;
 using PubSubSharp.Server.Core;
@@ -29,7 +28,7 @@ namespace PubSubSharp.Server {
             }
             try {
                 using (var socket = await context.WebSockets.AcceptWebSocketAsync()) {
-                    var client = new NotWorkingChatClient(this.mux);
+                    var client = new ChatClient(this.mux);
                     await client.RunAsync(socket);
                 }
             } catch (Exception ex) {
