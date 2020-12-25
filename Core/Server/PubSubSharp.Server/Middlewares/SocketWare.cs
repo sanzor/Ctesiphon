@@ -7,9 +7,6 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using PubSubSharp.Extensions;
-using PubSubSharp.Interfaces;
-using PubSubSharp.Server.Core;
 using Serilog;
 using StackExchange.Redis;
 
