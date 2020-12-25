@@ -16,8 +16,6 @@ using PubSub.Server;
 namespace PubSubSharp.Server {
     public sealed class ChatClient {
         private const int BUFFER_SIZE = 1024;
-
-
         private State state = new State();
         private BlockingCollection<string> queue = new BlockingCollection<string>();
 
@@ -66,7 +64,6 @@ namespace PubSubSharp.Server {
             switch (message.Kind) {
 
                 case WSMessage.DISCRIMINATOR.CLIENT__SUBSCRIBE:
-
                     ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
                     if (subscribeMessage.ClientId != this.state.ClientId && this.state.ClientId != null) {
                         queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Error: ClientId mismatch ! " }.ToJson());
@@ -76,7 +73,6 @@ namespace PubSubSharp.Server {
                         queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Error: ALREADY SUBSCRIBED TO CHANNEL :{subscribeMessage.Channel}" }.ToJson());
                         return;
                     }
-
                     await this.state.subscriber.SubscribeAsync(subscribeMessage.Channel, this.OnRedisMessageHandler);
                     await state.redisDB.HashSetAsync(subscribeMessage.ClientId, subscribeMessage.Channel, "set");
                     queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $"Subscribed to channel :{subscribeMessage.Channel} SUCCESSFULLY !" }.ToJson());
@@ -106,7 +102,6 @@ namespace PubSubSharp.Server {
                     var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
                     queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = channels.ToJson() }.ToJson());
                     break;
-
             }
         }
         private async Task CleanupSessionAsync() {
