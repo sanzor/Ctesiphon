@@ -16,7 +16,6 @@ using PubSub.Server;
 namespace PubSubSharp.Server {
     public sealed class ChatClient {
         private const int BUFFER_SIZE = 1024;
-        private ILogger log = Log.ForContext<ChatClient>();
 
 
         private State state = new State();
@@ -107,22 +106,16 @@ namespace PubSubSharp.Server {
                     var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
                     queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = channels.ToJson() }.ToJson());
                     break;
-                
+
             }
         }
         private async Task CleanupSessionAsync() {
-            try {
-                foreach (var channelHash in await this.state.redisDB.HashGetAllAsync(this.state.ClientId)) {
-                    await this.state.subscriber.UnsubscribeAsync(channelHash.Name.ToString(), this.OnRedisMessageHandler);
-                }
-                await this.state.redisDB.KeyDeleteAsync(this.state.ClientId);
-            } catch (Exception ex) {
-                log.Error(ex.Message);
+            foreach (var channelHash in await this.state.redisDB.HashGetAllAsync(this.state.ClientId)) {
+                await this.state.subscriber.UnsubscribeAsync(channelHash.Name.ToString(), this.OnRedisMessageHandler);
             }
-
+            await this.state.redisDB.KeyDeleteAsync(this.state.ClientId);
         }
         public ChatClient(ConnectionMultiplexer mux) {
-
             this.state.subscriber = mux.GetSubscriber();
             this.state.redisDB = mux.GetDatabase();
         }

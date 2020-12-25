@@ -18,16 +18,7 @@ namespace PubSubSharp.Server {
             return path;
         }
         public static void Main(string[] args) {
-
-            var logPath = ToCurrentAssemblyRootPath(Constants.LOG_FILE);
-
-            Log.Logger = new LoggerConfiguration()
-            .WriteTo.File(logPath, outputTemplate: Constants.LOG_OUTPUT_TEMPLATE)
-            .WriteTo.ColoredConsole(outputTemplate: Constants.LOG_OUTPUT_TEMPLATE)
-            .Enrich.FromLogContext()
-            .CreateLogger();
             CreateWebHostBuilder(args).Build().Run();
-            Log.CloseAndFlush();
         }
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {

@@ -14,7 +14,6 @@ namespace PubSubSharp.Server {
     public class SocketWare {
         private RequestDelegate next;
         private ConnectionMultiplexer mux;
-        private ILogger logger = Log.ForContext<SocketWare>();
         public SocketWare(RequestDelegate _next, ConnectionMultiplexer mux) {
             this.next = _next;
             this.mux = mux;
@@ -23,17 +22,10 @@ namespace PubSubSharp.Server {
             if (!context.WebSockets.IsWebSocketRequest) {
                 return;
             }
-            try {
-                using (var socket = await context.WebSockets.AcceptWebSocketAsync()) {
-                    var client = new ChatClient(this.mux);
-                    await client.RunAsync(socket);
-                }
-            } catch (Exception ex) {
-                logger.Error($"Error:{ex.Message}");
-
+            using (var socket = await context.WebSockets.AcceptWebSocketAsync()) {
+                var client = new ChatClient(this.mux);
+                await client.RunAsync(socket);
             }
-
-
         }
 
 
