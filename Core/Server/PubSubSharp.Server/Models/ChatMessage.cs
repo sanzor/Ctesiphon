@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PubSubSharp.Models {
+namespace PubSubSharp.Server {
     public class ChatMessage {
         public string ClientId { get; set; }
         public string Channel { get; set; }

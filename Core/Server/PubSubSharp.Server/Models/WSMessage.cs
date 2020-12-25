@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PubSubSharp.Models {
+namespace PubSubSharp.Server {
     public class WSMessage {
         public enum DISCRIMINATOR {
             CLIENT__SUBSCRIBE = 0,

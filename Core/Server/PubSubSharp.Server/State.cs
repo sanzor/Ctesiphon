@@ -5,9 +5,9 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PubSub.Server.Core {
+namespace PubSub.Server {
     internal class State {
-        public string ClientId;
+        public string ClientId { get; set; }
         public WebSocket socket;
         public Task outboundTask;
         public ISubscriber subscriber;

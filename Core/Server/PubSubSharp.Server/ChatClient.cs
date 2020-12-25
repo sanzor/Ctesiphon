@@ -4,18 +4,16 @@ using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
-using PubSubSharp.Extensions;
-using PubSubSharp.Models;
 using System.Collections.Concurrent;
 using System.Buffers;
 using System.Threading;
 using Serilog.Core;
-using PubSubSharp.Interfaces;
+using PubSubSharp;
 using StackExchange.Redis;
 using System.Text.Json;
-using PubSub.Server.Core;
+using PubSub.Server;
 
-namespace PubSubSharp.Server.Core {
+namespace PubSubSharp.Server {
     public sealed class ChatClient {
         private const int BUFFER_SIZE = 1024;
         private ILogger log = Log.ForContext<ChatClient>();
@@ -86,7 +84,7 @@ namespace PubSubSharp.Server.Core {
                     break;
                 case WSMessage.DISCRIMINATOR.CLIENT_UNSUBSCRIBE:
                     ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
-                    bool deleted = await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel, CommandFlags.FireAndForget);
+                    bool deleted = await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel);
                     if (!deleted) {
                         queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = $" UNSUBSCRIBE UNSUCCESSFUL" }.ToJson());
                         return;
@@ -109,6 +107,7 @@ namespace PubSubSharp.Server.Core {
                     var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
                     queue.Add(new WSMessage { Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, Payload = channels.ToJson() }.ToJson());
                     break;
+                
             }
         }
         private async Task CleanupSessionAsync() {
