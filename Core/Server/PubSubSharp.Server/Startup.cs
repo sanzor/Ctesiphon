@@ -23,31 +23,14 @@ namespace PubSubSharp.Server {
 
         public IConfiguration Configuration { get; }
         public void ConfigureServices(IServiceCollection services) {
-            try {
-                Config config = this.Configuration.GetSection("config").Get<Config>();
-                services.Configure<Config>(this.Configuration.GetSection("config"));
-                services.AddControllers();
-                ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(config.Redis.Con);
-                services.AddSingleton(mux);
-                
-            } catch (Exception ex) {
-                throw;
-               
-            }
-
+            Config config = this.Configuration.GetSection("config").Get<Config>();
+            services.Configure<Config>(this.Configuration.GetSection("config"));
+            services.AddControllers();
+            ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(config.Redis.Con);
+            services.AddSingleton(mux);
         }
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env) {
-            if (env.IsDevelopment()) {
-                app.UseDeveloperExceptionPage();
-            }
-   
+        public void Configure(IApplicationBuilder app) {
             app.UseRouting();
-
-            app.UseAuthorization();
-
-            app.UseEndpoints(endpoints => {
-                endpoints.MapControllers();
-            });
             app.UseWebSockets();
             app.MapWhen(y => y.WebSockets.IsWebSocketRequest, a => a.UseMiddleware<SocketWare>());
         }

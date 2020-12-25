@@ -32,7 +32,6 @@ namespace PubSubSharp.Server {
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
             var configPath = ToCurrentAssemblyRootPath(Constants.CONFIG_FILE);
-            //  Log.Information($"Using config at path: {configPath}");
             IConfiguration config = new ConfigurationBuilder().AddJsonFile(configPath).Build();
 
             var con = config.GetSection("config").Get<Config>();
