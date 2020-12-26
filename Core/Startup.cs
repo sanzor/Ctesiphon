@@ -23,10 +23,8 @@ namespace PubSubSharp.Server {
 
         public IConfiguration Configuration { get; }
         public void ConfigureServices(IServiceCollection services) {
-            Config config = this.Configuration.GetSection("config").Get<Config>();
-            services.Configure<Config>(this.Configuration.GetSection("config"));
             services.AddControllers();
-            ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(config.Redis.Con);
+            ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(Constants.REDIS_CONNECTION);
             services.AddSingleton(mux);
         }
         public void Configure(IApplicationBuilder app) {
