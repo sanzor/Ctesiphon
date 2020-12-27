@@ -18,13 +18,9 @@ namespace PubSubSharp.Server {
         }
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
-            
-
-           
             var webhostbuilder = WebHost.CreateDefaultBuilder(args)
                 .UseUrls(Constants.SERVER_URL)
                 .UseStartup<Startup>();
-
             return webhostbuilder;
         }
 
