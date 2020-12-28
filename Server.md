@@ -8,7 +8,6 @@ I have come to love it since it would enable me and  my friends to:
 
 * send messages
 * record audio
-
 * share screen
 
 thus , providing us a unique experience during long sessions of gaming.
@@ -19,12 +18,24 @@ From then on i started to get a real fascination regarding chat apps , and prett
 
 Years after completely abandoning gaming and dabbling for some time in areas such as Industrial Automation , Embedded Devices i rediscovered my passion for chat apps , but this time i wanted to create them.
 
+## What is a chat application ?
 
-## What we build
+So lets say i am a user Adrian and i want to connect with my buddy , Vasi and start exchanging messages. We will define all interactions between me and Vasi as belonging to a CHANNEL.
+
+All messages sent by a participant will be **broadcasted** to **all** members of that channel. As you will see further on , the channel is the building block of our application.
+
+Besides me and Vasi ,  at any given time there could be multiple such groups of people wanting to connect and communicate. Therefore , you can view the application as  a group of channels.
+
+![Channel Collection](image/Server/1609184427271.png)
 
 
-This article will be a part of a series whose end purpose is to build a chat application.In this part we will focus on one key component which is the Chat Server.
 
-The chat server is the place where users 
+## Architecture
 
-Any client (chat-ee) that wants to communicate withh other clients will connect to our chat server. Our chat server will run a long running task ( a loop basically)  for our client
+The chat server is basically the place where users plug in our system and start communicating with each other. For each new client the server will start a long running session ( *Thread* for old-school-ers or *Task*) that will end only upon user disconnection.
+
+But what exactly would this communication mean?
+
+Well this server is supposed to support the following operations:
+
+- Channel subscription
