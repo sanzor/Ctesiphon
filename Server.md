@@ -49,9 +49,9 @@ Another important note is that there is nothing stopping a given user to subscri
 
 As you can see from above , all messages sent by a channel participant will be **broadcasted** to **all** members of that channel , including the sender.
 
-## Architecture
+# Architecture
 
-### Components
+## Components
 
 The proposed  solution will be composed of :
 
@@ -62,7 +62,7 @@ The proposed  solution will be composed of :
 
 ![](image/Server/1609401606602.png)
 
-### Communication
+## Communication
 
 Since this is a chat application where the communication between a connected client and the given server is bidirectional (client sends messages , but also expects notifications from subscribed channel(s) ) ,  the protocol we will be using is **Websockets**.
 
@@ -70,7 +70,7 @@ Since this is a chat application where the communication between a connected cli
 
 Whenever a client connects to the server , the server will maintain a long running connection with the client and use this connection to receive/deliver messages in an ever going loop.
 
-### Message flow
+## Message flow
 
 ![Flow](image/Server/1609406390646.png)
 
