@@ -74,9 +74,21 @@ Whenever a client connects to the server , the server will maintain a long runni
 
 ![Flow](image/Server/1609406390646.png)
 
+In the picture above the red square represents the outbound end of the socket while the green represents the inbound end.
 
-There are some important considerations that derive from the above picture:
+### Key notes
+
+We define a user session as a `long running loop` , which in `.NET` it is represented by a`System.Threading.Task`.
 
 - The server runs a long running session for every connected client
 - Every client session is composed of:
-  - Inbound loop ( Task ) :
+  - **Inbound  Loop** :  messages are received over the socket , and depending on the logic  they  might or not  get published to the target Redis Channel.
+  - **Outbound Loop** : pushes Redis (or Server - we will see later on) messages over the socket to the client
+
+## Websocket Thread Safety
+
+A very important note regarding websockets , is that there can only be exactly one thread writing to the socket concurrently with exactly one thread that reads from the socket !
+
+As far as reading from the socket there is no issue 
+
+-
