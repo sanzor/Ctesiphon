@@ -62,33 +62,37 @@ The proposed  solution will be composed of :
 
 ![](image/Server/1609401606602.png)
 
-## Communication
+## Message Exchange Mechanism
 
 Since this is a chat application where the communication between a connected client and the given server is bidirectional (client sends messages , but also expects notifications from subscribed channel(s) ) ,  the protocol we will be using is **Websockets**.
 
 *The **WebSocket API** is an advanced technology that makes it possible to open a two-way interactive communication session between the user's browser and a server. With this API, you can send messages to a server and receive event-driven responses without having to poll the server for a reply.*
 
-Whenever a client connects to the server , the server will maintain a long running connection with the client and use this connection to receive/deliver messages in an ever going loop.
+![](image/Server/1609513059485.png)
 
-## Message flow
+Some key points regarding the picture above:
+
+- Whenever a client connects , it will receive messages over the websocket in a loop which represents the main Task
+- The main Task spawns the secondary Task which is basically a loop where messages are sent back to the client over the websocket
+- The websocket object is `ThreadSafe` only in the context of **exactly one receiver and one sender** ! (We will discuss later on this matter)
+- The two Tasks  run independently  from one another , both using the websocket as a shared resource. As you can see in the above picture
+
+Adding Redis to the equation ,  the flow becomes something like below :
 
 ![Flow](image/Server/1609406390646.png)
 
-In the picture above the red square represents the outbound end of the socket while the green represents the inbound end.
+# Prerequisites
 
-### Key notes
+For this solution you will need to install Redis Server . You can download it from [here](https://redis.io/download).
 
-We define a user session as a `long running loop` , which in `.NET` it is represented by a`System.Threading.Task`.
+For windows users (me included) the easiest way to install redis is via the package manager *chocolatey* from  [here](https://chocolatey.org/install) . Once installed  from a terminal just run:
 
-- The server runs a long running session for every connected client
-- Every client session is composed of:
-  - **Inbound  Loop** :  messages are received over the socket , and depending on the logic  they  might or not  get published to the target Redis Channel.
-  - **Outbound Loop** : pushes Redis (or Server - we will see later on) messages over the socket to the client
+`choco redis`
 
-## Websocket Thread Safety
+If the install was successful from a terminal run
 
-A very important note regarding websockets , is that there can only be exactly one thread writing to the socket concurrently with exactly one thread that reads from the socket !
+`redis-server`
 
-As far as reading from the socket there is no issue 
+and you should see the below output which indicates your redis server is up and running.
 
--
+![](image/Server/1609517506383.png)
