@@ -8,7 +8,8 @@ This will be a multi-part series in which we are going to build from scratch a c
 
 ![](image/Server/1609216142929.png)
 
-The chat server will support 4 basic operations:
+
+Supported Features:
 
 - subscription to one or multiple chat rooms
 - unsubscription from target/all chat rooms
@@ -26,8 +27,6 @@ I have come to love it since it would enable me and  my friends to:
 * share screen
 
 Besides gaming ,we were also using it  for sharing school material(s) , homework discussions and why not ,  school gossip :D
-
-From then on i started to get a real fascination regarding chat apps , and pretty much any application that would support realtime notifications.
 
 Years after completely abandoning gaming and dabbling for some time in areas such as Industrial Automation , Embedded Devices i rediscovered my passion for chat apps , but this time i was poised to create them.
 
@@ -60,26 +59,61 @@ The proposed  solution will be composed of :
   - Data bus - we will be using the Publish/Subscribe functionality of Redis in order for clients to receive messages from subscribed channels.More on this can be found in the redis documentation [here](https://redis.io/topics/pubsub).
   - Storage medium , holding client data such as subscribed channel
 
-![](image/Server/1609401606602.png)
-
-## Message Exchange Mechanism
+## Communication Protocol
 
 Since this is a chat application where the communication between a connected client and the given server is bidirectional (client sends messages , but also expects notifications from subscribed channel(s) ) ,  the protocol we will be using is **Websockets**.
 
-*The **WebSocket API** is an advanced technology that makes it possible to open a two-way interactive communication session between the user's browser and a server. With this API, you can send messages to a server and receive event-driven responses without having to poll the server for a reply.*
+## Flow
 
-![](image/Server/1609513059485.png)
+By flow we will be referring to the way both inbound- messages arriving from the client  and outbound messages  sent to the client are handled and where and how does the Websocket object fit in as well as the Redis database.
 
-Some key points regarding the picture above:
+### Inbound Task
 
-- Whenever a client connects , it will receive messages over the websocket in a loop which represents the main Task
-- The main Task spawns the secondary Task which is basically a loop where messages are sent back to the client over the websocket
-- The websocket object is `ThreadSafe` only in the context of **exactly one receiver and one sender** ! (We will discuss later on this matter)
-- The two Tasks  run independently  from one another , both using the websocket as a shared resource. As you can see in the above picture
+![Inbound Flow](image/Server/1609585970364.png)
 
-Adding Redis to the equation ,  the flow becomes something like below :
+The inbound task is basically a loop running in a  `System.Threading.Task` for those familiar with the `.NET` Ecosystem (an operation which is dispatched over the framework's  thread pool  , more on it [here](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)).
 
-![Flow](image/Server/1609406390646.png)
+This task gets spawned at the begining of the session - when the user connects to the server via a upgradeable  http request to websockets.
+
+#### Message types
+
+Inside the inbound Task we will receive messages from the websocket connection and it is our responsibility to handle them accordingly.Therefore  a couple of messages have been defined:
+
+
+| Message Type | Arguments | Action Performed |
+| - | - | - |
+| SUBSCRIBE | `Client ID`, `Channel` | Subscribes to Redis`Channel`  or sends back to client a SERVER_RESULT message with the failure reason ( already subscribed/ID mismatch) |
+| UNSUBSCRIBE | `Channel` | Unsubscribes from Redis Channel or sends to client a SERVER_RESULT message with the reason for failure |
+| MESSAGE | `ClientID`,<br />`Channel`,<br />`Payload` | Publishes`Payload` to target Redis  `Channel` on behalf of `Client ID` |
+| GET_CHANNELS | `Client ID` | Retrieves all the channels that the`ClientID` is subscribed to. |
+
+
+Notes:
+
+- We did not include in the table the message of type`SERVER_RESULT` since this is an outbound message. The server sends this message to the client as the result of the attempted operation !
+- The `SERVER_RESULT` messages as you can see are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
+
+#### Subscribe/Unsubscribe mechanism
+
+We are going to use an `ISubscriber` object provided by the `StackExchangeRedis` library in order to perform subscribe/unsubscribe operations on target channel(s).
+
+To **subscribe** to a `Channel` we  will use the provided method
+
+ `ISubscriber.SubscribeAsync(RedisChannel channel, Action<RedisChannel,RedisValue> handler)` where :
+
+- `channel` - the channel to which we want to subscribe
+- `handler` -  a method that shall be triggered whenever a new message is available on the target channel.
+
+To **unsubscribe** we use the provided method
+
+`ISubscriber.UnsubscribeAsync(RedisChannel channel,Action<RedisChannel,RedisValue>handler)`  where :
+
+- `channel` - the channel that we wish to stop receiving messages from
+- `handler` - the method which was used to subscribe to the channel , (kept in a state variable)
+
+An important note is that we need to store the `handler` as a state variable in order to subscribe/unsubscribe from any given channel.
+
+### Outbound Task
 
 # Prerequisites
 
