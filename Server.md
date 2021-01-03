@@ -130,8 +130,11 @@ The outbound queue acts as a sink for all producers as can be seen from the pict
 
 # Implementation
 
-
 ## Prerequisites
+
+Those familiar with setting up /using Redis and  .NET can skip this section.
+
+### Installing Redis
 
 For this solution you will need to install Redis Server . You can download it from [here](https://redis.io/download).
 
@@ -146,3 +149,38 @@ If the install was successful from a terminal run
 and you should see the below output which indicates your redis server is up and running.
 
 ![](image/Server/1609517506383.png)
+
+##### Using Redis-Cli
+
+With the `redis-server` started  you can start playing with redis using the `Redis-Cli`from a terminal with the command`redis-cli`.
+
+![](image/Server/1609672675137.png)
+
+You can also test the `publish-subscribe` feature of redis by opening two `redis-cli` like below:
+
+![](image/Server/1609672283904.png)
+
+`redis-cli` can be used as a debugging/diagnosis tool , especially in our pubslish-subscribe scenario where you can easily hook up to a target channel and see if your messages get published/delivered.
+
+### NET 5.0
+
+For this application we are using .NET 5.0 and you can download it from  [here](https://dotnet.microsoft.com/download/dotnet/5.0).
+
+## Source Code
+
+We will be starting our project from a template of type `ASP NET Core Web Application`.
+
+```
+ public class Program {
+        public static void Main(string[] args) {
+            CreateWebHostBuilder(args).Build().Run();
+        }
+
+        public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
+            var webhostbuilder = WebHost.CreateDefaultBuilder(args)
+                .UseUrls(Constants.SERVER_URL)
+                .UseStartup<Startup>();
+            return webhostbuilder;
+        }
+    }
+```
