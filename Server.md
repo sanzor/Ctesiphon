@@ -8,7 +8,6 @@ This will be a multi-part series in which we are going to build from scratch a c
 
 ![](image/Server/1609216142929.png)
 
-
 Supported Features:
 
 - subscription to one or multiple chat rooms
@@ -73,11 +72,11 @@ By flow we will be referring to the way both inbound- messages arriving from the
 
 The inbound task is basically a loop running in a  `System.Threading.Task` for those familiar with the `.NET` Ecosystem (an operation which is dispatched over the framework's  thread pool  , more on it [here](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)).
 
-This task gets spawned at the begining of the session - when the user connects to the server via a upgradeable  http request to websockets.
+This task gets spawned at the begining of the session - when the user connects to the server via a upgradeable  http-to-websocket request .
 
 #### Message types
 
-Inside the inbound Task we will receive messages from the websocket connection and it is our responsibility to handle them accordingly.Therefore  a couple of messages have been defined:
+Inside the inbound Task we will receive messages from the websocket connection and it is our responsibility to handle them accordingly.Therefore  the following messages have been defined:
 
 
 | Message Type | Arguments | Action Performed |
@@ -87,11 +86,10 @@ Inside the inbound Task we will receive messages from the websocket connection a
 | MESSAGE | `ClientID`,<br />`Channel`,<br />`Payload` | Publishes`Payload` to target Redis  `Channel` on behalf of `Client ID` |
 | GET_CHANNELS | `Client ID` | Retrieves all the channels that the`ClientID` is subscribed to. |
 
-
-Notes:
+**Notes**:
 
 - We did not include in the table the message of type`SERVER_RESULT` since this is an outbound message. The server sends this message to the client as the result of the attempted operation !
-- The `SERVER_RESULT` messages as you can see are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
+- The `SERVER_RESULT` messages , as you can see ,  are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
 
 #### Subscribe/Unsubscribe mechanism
 
@@ -99,7 +97,7 @@ We are going to use an `ISubscriber` object provided by the `StackExchangeRedis`
 
 To **subscribe** to a `Channel` we  will use the provided method
 
- `ISubscriber.SubscribeAsync(RedisChannel channel, Action<RedisChannel,RedisValue> handler)` where :
+`ISubscriber.SubscribeAsync(RedisChannel channel, Action<RedisChannel,RedisValue> handler)` where :
 
 - `channel` - the channel to which we want to subscribe
 - `handler` -  a method that shall be triggered whenever a new message is available on the target channel.
@@ -115,7 +113,25 @@ An important note is that we need to store the `handler` as a state variable in 
 
 ### Outbound Task
 
-# Prerequisites
+![](image/Server/1609648304233.png)
+
+The outbound task is a asynchronous task started from the  inbound task (during its inception).
+
+As long as there are messages available in the queue we pop them  and send them to the client over the websocket connection.
+
+When there are no messages inside the queue, the task blocks , awaiting new ones.
+
+#### The Outbound Queue
+
+The outbound queue acts as a sink for all producers as can be seen from the picture.In our case the producers are:
+
+- **Inbound Task**: The messages that the server sends back to the client (messages of type SERVER_RESULT)
+- **Redis**:  All messages that are published on channels on which our user is subscribed to.
+
+# Implementation
+
+
+## Prerequisites
 
 For this solution you will need to install Redis Server . You can download it from [here](https://redis.io/download).
 
