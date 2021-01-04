@@ -170,7 +170,13 @@ For this application we are using .NET 5.0 and you can download it from  [here](
 
 We will be starting our project from a template of type `ASP NET Core Web Application`.
 
+### Entrypoint 
+
 ```
+
+ /// The entrypoint in our application
+ /// Constants.SERVER_URL is a default url string eg : localhost:8300
+
  public class Program {
         public static void Main(string[] args) {
             CreateWebHostBuilder(args).Build().Run();
@@ -178,9 +184,36 @@ We will be starting our project from a template of type `ASP NET Core Web Applic
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args) {
             var webhostbuilder = WebHost.CreateDefaultBuilder(args)
-                .UseUrls(Constants.SERVER_URL)
+                .UseUrls(Constants.SERVER_URL)  
                 .UseStartup<Startup>();
             return webhostbuilder;
         }
     }
+````
+
 ```
+ /// Called above by extension method `UseStartup`
+ /// Constants.REDIS_CONNECTION is a plain string , eg: localhost:6379  (6379 is the default redis port)
+
+ public class Startup {
+        public Startup(IConfiguration configuration) {
+            Configuration = configuration;
+        }  
+        public void ConfigureServices(IServiceCollection services) {
+            services.AddControllers();
+            ConnectionMultiplexer mux = ConnectionMultiplexer.Connect(Constants.REDIS_CONNECTION);
+            services.AddSingleton(mux);
+        }
+        public void Configure(IApplicationBuilder app) {
+            app.UseRouting();
+            app.UseWebSockets();
+            app.MapWhen(y => y.WebSockets.IsWebSocketRequest, a => a.UseMiddleware<SocketWare>());
+        }
+    }
+````
+
+The above sections are mandatory in any `ASP NET Core` application. The `Program.Main` starts the application and will  use the `Startup` class to configure it.
+
+The `ConnectionMultiplexer` is our connection to the redis database and will be injected as a singleton resource in our application. Connected clients will use the multiplexer as a factory for subscriptions to target channels.
+
+In the `Startup` class notice the `MapWhen` extension which routes all websocket requests to the `SocketWare`   which is a [ASP NET Core Middleware](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-5.0).
