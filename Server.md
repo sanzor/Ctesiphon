@@ -170,7 +170,7 @@ For this application we are using .NET 5.0 and you can download it from  [here](
 
 We will be starting our project from a template of type `ASP NET Core Web Application`.
 
-### Entrypoint 
+### Entrypoint
 
 ```
 
@@ -196,6 +196,9 @@ We will be starting our project from a template of type `ASP NET Core Web Applic
  /// Constants.REDIS_CONNECTION is a plain string , eg: localhost:6379  (6379 is the default redis port)
 
  public class Startup {
+
+        public IConfiguration Configuration { get; }
+
         public Startup(IConfiguration configuration) {
             Configuration = configuration;
         }  
@@ -216,4 +219,39 @@ The above sections are mandatory in any `ASP NET Core` application. The `Program
 
 The `ConnectionMultiplexer` is our connection to the redis database and will be injected as a singleton resource in our application. Connected clients will use the multiplexer as a factory for subscriptions to target channels.
 
-In the `Startup` class notice the `MapWhen` extension which routes all websocket requests to the `SocketWare`   which is a [ASP NET Core Middleware](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-5.0).
+### Middleware
+
+In the `Startup` class  `Configure` method above notice the `MapWhen`extension . Based on a predicate it will route  all  requests to the  specified [ASP NET Core Middleware](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-5.0).
+
+In our case:
+
+- predicate = request should be of type websocket
+- middleware is of type `SocketWare` (presented below)
+
+```
+public class SocketWare {
+        private RequestDelegate next;
+        private ConnectionMultiplexer mux;
+        public SocketWare(RequestDelegate _next, ConnectionMultiplexer mux) {
+            this.next = _next;
+            this.mux = mux;
+        }
+
+        ///Called by the framework on each websocket request
+        public async Task Invoke(HttpContext context) {
+            using (var socket = await context.WebSockets.AcceptWebSocketAsync()) {
+                ChatClient client = new ChatClient(this.mux);
+                await client.RunAsync(socket);
+            }
+        }
+    }
+```
+
+The `ConnectionMultiplexer` is passed using dependency injection  - remember it was injected in the `Startu.ConfigureServices` method !
+
+The `Invoke` method  is a minimal requirement for any ASP NET middleware so that the framework knows to route the incoming request , and lets you handle it.
+
+Remember the  `Startup.Configure` method , the predicate of `MapWhen` ; this middleware will be invoked only for websocket requests !
+
+
+**Chat Client**
