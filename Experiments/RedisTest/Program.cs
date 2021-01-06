@@ -30,9 +30,12 @@ namespace RedisTest {
                 Console.WriteLine($"Handler2:{value}");
             });
             await sub1.SubscribeAsync(CHANNEL, h1);
-            await sub2.SubscribeAsync(CHANNEL, h1);
-            await sub1.SubscribeAsync(CHANNEL, h2);
+            await sub1.SubscribeAsync(CHANNEL, h1);
+            await sub1.SubscribeAsync(CHANNEL, h1);
+            //await sub2.SubscribeAsync(CHANNEL, h1);
+            //await sub1.SubscribeAsync(CHANNEL, h2);
             await tcs.Task;
+            await sub1.UnsubscribeAsync(CHANNEL, h1);
             await sub1.UnsubscribeAsync(CHANNEL, h1);
             await tcs2.Task;
             Console.WriteLine("Hello World!");
