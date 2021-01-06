@@ -91,25 +91,6 @@ Inside the inbound Task we will receive messages from the websocket connection a
 - We did not include in the table the message of type`SERVER_RESULT` since this is an outbound message. The server sends this message to the client as the result of the attempted operation !
 - The `SERVER_RESULT` messages , as you can see ,  are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
 
-#### Subscribe/Unsubscribe mechanism
-
-We are going to use an `ISubscriber` object provided by the `StackExchangeRedis` library in order to perform subscribe/unsubscribe operations on target channel(s).
-
-To **subscribe** to a `Channel` we  will use the provided method
-
-`ISubscriber.SubscribeAsync(RedisChannel channel, Action<RedisChannel,RedisValue> handler)` where :
-
-- `channel` - the channel to which we want to subscribe
-- `handler` -  a method that shall be triggered whenever a new message is available on the target channel.
-
-To **unsubscribe** we use the provided method
-
-`ISubscriber.UnsubscribeAsync(RedisChannel channel,Action<RedisChannel,RedisValue>handler)`  where :
-
-- `channel` - the channel that we wish to stop receiving messages from
-- `handler` - the method which was used to subscribe to the channel , (kept in a state variable)
-
-An important note is that we need to store the `handler` as a state variable in order to subscribe/unsubscribe from any given channel.
 
 ### Outbound Task
 
@@ -255,3 +236,163 @@ Remember the  `Startup.Configure` method , the predicate of `MapWhen` ; this mid
 
 
 **Chat Client**
+
+This is the core of the application and since it is the most complex part i will post the entire component , and will explain it afterwards.
+
+```
+ public sealed class ChatClient {
+
+        private const int BUFFER_SIZE = 1024;
+        private State state = new State();
+        private BlockingCollection<string> outboundQueue = new BlockingCollection<string>();
+  
+        private Action<RedisChannel, RedisValue> onRedisMessageHandler = null;
+        public Action<RedisChannel, RedisValue> OnRedisMessageHandler {
+            get {
+                if (this.onRedisMessageHandler == null) {
+                    this.onRedisMessageHandler = new Action<RedisChannel, RedisValue>
+                                                ((channel, value)  => this.outboundQueue.Add(value));
+                }
+                return this.onRedisMessageHandler;
+            }
+        }  
+
+
+        //Constructor -receives the multiplexer
+        public ChatClient(ConnectionMultiplexer mux) {
+            this.state.subscriber = mux.GetSubscriber();
+            this.state.redisDB = mux.GetDatabase();
+        }
+
+
+        //entrypoint -starts asynchronous outbound task
+        public async Task RunAsync(WebSocket socket) {
+            this.state.outboundTask = Task.Run(async () => {
+                foreach (var item in this.outboundQueue.GetConsumingEnumerable()) {
+                    var bytes = Encoding.UTF8.GetBytes(item);
+                    await socket.SendAsync(bytes,WebSocketMessageType.Text,true,CancellationToken.None);
+                }
+            });
+            await this.InboundLoopAsync(socket);
+        }
+  
+
+
+        // inbound task - receives messages ,parses them and handles them accordingly
+        // on loop end - triggers the cleanup routine
+        private async Task InboundLoopAsync(WebSocket socket) {
+
+            byte[] inboundBuffer = ArrayPool<byte>.Shared.Rent(BUFFER_SIZE);   
+            try {
+                while (true) {
+                    WebSocketReceiveResult wsResult = await socket.ReceiveAsync(inboundBuffer,CancellationToken.None);
+                    if (wsResult.MessageType == WebSocketMessageType.Close) {
+                        ArrayPool<byte>.Shared.Return(inboundBuffer);
+                        return;
+                    }
+                    byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; 
+                    WSMessage message = JsonSerializer.Deserialize<WSMessage>(Encoding.UTF8.GetString(incomingBytes));
+                    await this.HandleMessageAsync(message); 
+                }
+            } finally {
+                await this.CleanupSessionAsync();
+            }
+        }
+
+       // cleanup routine
+       //cleans redis hashset containing subscribed channels && subscriptions to said channels
+        private async Task CleanupSessionAsync() {
+            foreach (var channelHash in await this.state.redisDB.HashGetAllAsync(this.state.ClientId)) {
+                await this.state.subscriber.UnsubscribeAsync(channelHash.Name.ToString(), this.OnRedisMessageHandler);
+            }
+            await this.state.redisDB.KeyDeleteAsync(this.state.ClientId);
+        }
+
+  
+
+        // message - handling routine
+        // SUBSCRIBE- adds channel to redis hashset
+        // UNSUBSCRIBE- deletes channel from redis hashset
+        // MESSAGE - publishes redis message to target channel
+        // GET_CHANNELS - fetches all user subscribed channels from redis hashset
+        private async Task HandleMessageAsync(WSMessage message) {
+            switch (message.Kind) {
+
+                case WSMessage.DISCRIMINATOR.CLIENT__SUBSCRIBE:
+                    ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    if (subscribeMessage.ClientId != this.state.ClientId && this.state.ClientId != null) {
+                        outboundQueue.Add(new WSMessage { 
+                             Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
+                             Payload = $"Error: ClientId mismatch ! " }
+                        .ToJson());
+                        return;
+                    }
+                    if (await state.redisDB.HashExistsAsync(this.state.ClientId = subscribeMessage.ClientId, subscribeMessage.Channel)) {
+                        outboundQueue.Add(new WSMessage { 
+                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
+                            Payload = $"Error: ALREADY SUBSCRIBED TO CHANNEL {subscribeMessage.Channel}"  }.ToJson());
+                        return;
+                    }
+                    await this.state.subscriber.SubscribeAsync(subscribeMessage.Channel, this.OnRedisMessageHandler);
+                    await state.redisDB.HashSetAsync(subscribeMessage.ClientId, subscribeMessage.Channel, "set");
+                    outboundQueue.Add(new WSMessage { 
+                        Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
+                        Payload = $"Subscribed to channel :{subscribeMessage.Channel} SUCCESSFULLY !"}
+                    .ToJson());
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_UNSUBSCRIBE:
+                    ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
+                    bool deleted = await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel);
+                    if (!deleted) {
+                        outboundQueue.Add(new WSMessage { 
+                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
+                            Payload = $" UNSUBSCRIBE UNSUCCESSFUL" }
+                        .ToJson());
+                        return;
+                    }
+                    await this.state.subscriber.UnsubscribeAsync(unsubscribeMessage.Channel, this.OnRedisMessageHandler);
+                    outboundQueue.Add(new WSMessage { 
+                        Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
+                        Payload = $" UNSUBSCRIBE SUCCESSFUL" }
+                    .ToJson());
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_MESSAGE:
+                    ChatMessage chatMessage = JsonSerializer.Deserialize<ChatMessage>(message.Payload);
+                    if (!await this.state.redisDB.HashExistsAsync(chatMessage.ClientId, chatMessage.Channel)) {
+                        outboundQueue.Add(new WSMessage {
+                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
+                            Payload = $"Can not send message.Client:{chatMessage.ClientId} " +
+                            $"does not exist or is not subscribed to channel:{chatMessage.Channel}"}
+                        .ToJson());
+                    }
+                    await this.state.subscriber.PublishAsync(chatMessage.Channel, $"Channel:{chatMessage.Channel},Sender:{chatMessage.ClientId},Message:{chatMessage.Message}");
+                    break;
+                case WSMessage.DISCRIMINATOR.CLIENT_GET_CHANNELS:
+                    var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
+                    outboundQueue.Add(new WSMessage {
+                         Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
+                         Payload = channels.ToJson()}
+                    .ToJson());
+                    break;
+            }
+        }
+
+    }
+````
+
+**Notes**
+
+The `State` variable:
+
+```
+ internal class State {
+        public string ClientId { get; set; }
+        public Task outboundTask;
+        public ISubscriber subscriber;
+        public IDatabase redisDB;
+    }
+```
+
+- `ISubscriber`is a component of`StackExchangeRedis`library and  is used`subscribe/unsubscribe`to different channels. In doing so we need to provide in both operations the handler which is`OnRedisMessageHandler`
+- `IDatabase` is a component of `StackExchangeRedis` library and is used for all redis commands.In our case , for each client we will store in redis a hashset containing the subscribed channels.All CRUD operations over the hashset will be done using this variable.
+- `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
