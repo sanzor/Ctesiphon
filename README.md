@@ -15,6 +15,9 @@ Supported Features:
 - sending messages to target chat room
 - receiving messages from all subscribed chat rooms
 
+
+
+
 ## Motivation
 
 Ever since i started playing online games in middle-school back in 2003 (Warcraft 3) , i have been using messaging applications in order to communicate with my peers. The first such application  which in time became ubiquitous was Skype.
@@ -43,6 +46,10 @@ Another important note is that there is nothing stopping a given user to subscri
 
 As you can see from above , all messages sent by a channel participant will be **broadcasted** to **all** members of that channel , including the sender.
 
+
+
+
+
 # Architecture
 
 ## System Overview
@@ -50,10 +57,8 @@ As you can see from above , all messages sent by a channel participant will be *
 ![](image/README/1609964433528.png)
 
 - **Server**:  ASP NET Core Web application - the server where our logic will run handling client operations (subscribe/unsubscribe/publish message/get channels)
-- **Database** : Redis -  serving as:
-  - Data bus - we will be using the Publish/Subscribe functionality of Redis in order for clients to receive messages from subscribed channels.More on this can be found in the redis documentation [here](https://redis.io/topics/pubsub).
-  - Storage medium , holding client data such as subscribed channel
-- **Communication Protocol** : Since this is a chat application where the communication between a connected client and the given server is bidirectional (client sends messages , but also expects notifications from subscribed channel(s) ) ,  the protocol we will be using is **Websockets**.
+- **Database** : Redis as a message broker with its publish/subscribe functionality and also for storage (user subscribed channels)
+- **Client Communication Protocol** : Since this is a chat application (bidirectional communication required) ,  the protocol we will be using is **Websockets**.
 
 ## Flow
 
@@ -63,9 +68,9 @@ By flow we will be referring to the way both inbound- messages arriving from the
 
 ![Inbound Flow](image/Server/1609585970364.png)
 
-The inbound task is basically a loop running in a  `System.Threading.Task` for those familiar with the `.NET` Ecosystem (an operation which is dispatched over the framework's  thread pool  , more on it [here](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)).
+The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)  (for those familiar with the `.NET` Ecosystem - an operation which is dispatched over the threadpool)  is basically a loop which receives messages from the client , parses , and handles them.
 
-This task gets spawned at the begining of the session - when the user connects to the server via a upgradeable  http-to-websocket request .
+This [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0) gets spawned at the begining of the session - when the user connects to the server via a upgradeable  websocket request .
 
 #### Message types
 
@@ -321,6 +326,7 @@ This is the core of the application and since it is the most complex part i will
 We have defined the `ChatClient` as `partial` in order to separate the message handling method `HandleMessageAsync` from the rest of the class  due to its complexity:
 
 ```cs
+
 public  sealed  partial class ChatClient {
   
           // message  handling routine
