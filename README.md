@@ -45,7 +45,6 @@ As you can see from above , all messages sent by a channel participant will be *
 
 # Architecture
 
-
 ## System Overview
 
 ![](image/README/1609964433528.png)
@@ -55,7 +54,6 @@ As you can see from above , all messages sent by a channel participant will be *
   - Data bus - we will be using the Publish/Subscribe functionality of Redis in order for clients to receive messages from subscribed channels.More on this can be found in the redis documentation [here](https://redis.io/topics/pubsub).
   - Storage medium , holding client data such as subscribed channel
 - **Communication Protocol** : Since this is a chat application where the communication between a connected client and the given server is bidirectional (client sends messages , but also expects notifications from subscribed channel(s) ) ,  the protocol we will be using is **Websockets**.
-
 
 ## Flow
 
@@ -233,7 +231,7 @@ Remember the  `Startup.Configure` method , the predicate of `MapWhen` ; this mid
 This is the core of the application and since it is the most complex part i will post the entire component , and will explain it afterwards.
 
 ```cs
- public sealed class ChatClient {
+ public sealed partial class ChatClient {
 
         private const int BUFFER_SIZE = 1024;
         private State state = new State();
@@ -284,7 +282,7 @@ This is the core of the application and since it is the most complex part i will
                     }
                     byte[] incomingBytes = inboundBuffer[0..wsResult.Count]; 
                     WSMessage message = JsonSerializer.Deserialize<WSMessage>(Encoding.UTF8.GetString(incomingBytes));
-                    await this.HandleMessageAsync(message); 
+                    await this.HandleMessageAsync(message); //check next section !
                 }
             } finally {
                 await this.CleanupSessionAsync();
@@ -303,9 +301,7 @@ This is the core of the application and since it is the most complex part i will
     }
 ````
 
-**Notes**
-
-The `State` variable:
+#### State
 
 ```cs
    internal class State {
@@ -316,11 +312,9 @@ The `State` variable:
     }
 ```
 
-- `ISubscriber`is a component of`StackExchangeRedis`library and  is used`subscribe/unsubscribe`to different channels. In doing so we need to provide in both operations the handler which is`OnRedisMessageHandler`.
-- `IDatabase` is a component of `StackExchangeRedis` library and is used for all redis commands.In our case , for each client we will store in redis a hashset containing the subscribed channels.All CRUD operations over the hashset will be done using this variable.
+- `ISubscriber`is a component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis)  and  is used to subscribe/unsubscribe on redis channels. In doing so we need to provide in both operations the handler which is`OnRedisMessageHandler`.
+- `IDatabase` is a also a  component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis) and is used for all redis commands.In our case , for each client we will store in redis a hashset containing the subscribed channels.All CRUD operations over the hashset will be done using this variable.
 - `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
-
-
 
 #### Message Handler
 
