@@ -231,9 +231,29 @@ The `Invoke` method  is a minimal requirement for any ASP NET middleware so that
 
 Remember the  `Startup.Configure` method , the predicate of `MapWhen` ; this middleware will be invoked only for websocket requests !
 
-### Chat Client
+### Core
 
 This is the core of the application and since it is the most complex part i will post the entire component , and will explain it afterwards.
+
+#### State
+
+The core component uses a private field of type `State` for its operations.
+
+```cs
+   internal class State {
+        public string ClientId { get; set; }
+        public Task outboundTask;
+        public ISubscriber subscriber;
+        public IDatabase redisDB;
+    }
+```
+
+- `ISubscriber`is a component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis)  and  is used to subscribe/unsubscribe on redis channels. In doing so we need to provide in both operations the handler which is`OnRedisMessageHandler`.
+- `IDatabase` is a also a  component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis) and is used for all redis commands.In our case , for each client we will store in redis a hashset containing the subscribed channels.All CRUD operations over the hashset will be done using this variable.
+- `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
+
+
+#### Chat Client
 
 ```cs
  public sealed partial class ChatClient {
@@ -306,22 +326,8 @@ This is the core of the application and since it is the most complex part i will
     }
 ````
 
-#### State
 
-```cs
-   internal class State {
-        public string ClientId { get; set; }
-        public Task outboundTask;
-        public ISubscriber subscriber;
-        public IDatabase redisDB;
-    }
-```
-
-- `ISubscriber`is a component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis)  and  is used to subscribe/unsubscribe on redis channels. In doing so we need to provide in both operations the handler which is`OnRedisMessageHandler`.
-- `IDatabase` is a also a  component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis) and is used for all redis commands.In our case , for each client we will store in redis a hashset containing the subscribed channels.All CRUD operations over the hashset will be done using this variable.
-- `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
-
-#### Message Handler
+##### Chat Client Message Handler
 
 We have defined the `ChatClient` as `partial` in order to separate the message handling method `HandleMessageAsync` from the rest of the class  due to its complexity:
 
