@@ -1,12 +1,12 @@
-# Introduction
+## Introduction
 
-This will be a multi-part series in which we are going to build from scratch a chat application . In this article we are going to build the chat server which is the backbone of the chat application using the following technologies:
+This will be a multi-part series in which we are going to build from scratch a **Chat application** . In this article we are going to build the chat server which is the backbone of the chat application using the following technologies:
 
 - ASP NET Core
 - Redis
 - Websockets protocol
 
-![](image/Server/1609216142929.png)
+![](image/README/1610082389531.png)
 
 Supported Features:
 
@@ -15,10 +15,7 @@ Supported Features:
 - sending messages to target chat room
 - receiving messages from all subscribed chat rooms
 
-
-
-
-## Motivation
+### Motivation
 
 Ever since i started playing online games in middle-school back in 2003 (Warcraft 3) , i have been using messaging applications in order to communicate with my peers. The first such application  which in time became ubiquitous was Skype.
 
@@ -28,7 +25,7 @@ Besides gaming ,we were also using it  for sharing school material(s) , homework
 
 Years after completely abandoning gaming and dabbling for some time in areas such as Industrial Automation , Embedded Devices i rediscovered my passion for chat apps , but this time i was poised to create them.
 
-## General Mechanics
+### General Mechanics
 
 So lets say i am a user Adrian and i want to connect with my buddy , Vasi ,  and start exchanging messages. We will define all interactions between me and Vasi as belonging to a CHANNEL.
 
@@ -46,13 +43,9 @@ Another important note is that there is nothing stopping a given user to subscri
 
 As you can see from above , all messages sent by a channel participant will be **broadcasted** to **all** members of that channel , including the sender.
 
+## Architecture
 
-
-
-
-# Architecture
-
-## System Overview
+### System Overview
 
 ![](image/README/1609964433528.png)
 
@@ -60,11 +53,11 @@ As you can see from above , all messages sent by a channel participant will be *
 - **Database** : Redis as a message broker with its publish/subscribe functionality and also for storage (user subscribed channels)
 - **Client Communication Protocol** : Since this is a chat application (bidirectional communication required) ,  the protocol we will be using is **Websockets**.
 
-## Flow
+### Flow
 
 By flow we will be referring to the way both inbound- messages arriving from the client  and outbound messages  sent to the client are handled and where and how does the Websocket object fit in as well as the Redis database.
 
-### Inbound Task
+#### Inbound Task
 
 ![Inbound Flow](image/Server/1609585970364.png)
 
@@ -72,7 +65,7 @@ The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.
 
 This [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0) gets spawned at the begining of the session - when the user connects to the server via a upgradeable  websocket request .
 
-#### Message types
+##### Message types
 
 Inside the inbound Task we will receive messages from the websocket connection and it is our responsibility to handle them accordingly.Therefore  the following messages have been defined:
 
@@ -89,7 +82,7 @@ Inside the inbound Task we will receive messages from the websocket connection a
 - We did not include in the table the message of type`SERVER_RESULT` since this is an outbound message. The server sends this message to the client as the result of the attempted operation !
 - The `SERVER_RESULT` messages , as you can see ,  are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
 
-### Outbound Task
+#### Outbound Task
 
 ![](image/Server/1609648304233.png)
 
@@ -99,20 +92,19 @@ As long as there are messages available in the queue we pop them  and send them 
 
 When there are no messages inside the queue, the task blocks , awaiting new ones.
 
-#### The Outbound Queue
+##### The Outbound Queue
 
 The outbound queue acts as a sink for all producers as can be seen from the picture.In our case the producers are:
 
 - **Inbound Task**: The messages that the server sends back to the client (messages of type SERVER_RESULT)
 - **Redis**:  All messages that are published on channels on which our user is subscribed to.
 
-# Implementation
 
 ## Prerequisites
 
 Those familiar with setting up /using Redis and  .NET can skip this section.
 
-### Installing Redis
+#### Installing Redis
 
 For this solution you will need to install Redis Server . You can download it from [here](https://redis.io/download).
 
@@ -128,7 +120,7 @@ and you should see the below output which indicates your redis server is up and 
 
 ![](image/Server/1609517506383.png)
 
-##### Using Redis-Cli
+###### Using Redis-Cli
 
 With the `redis-server` started  you can start playing with redis using the `Redis-Cli`from a terminal with the command`redis-cli`.
 
@@ -140,15 +132,18 @@ You can also test the `publish-subscribe` feature of redis by opening two `redis
 
 `redis-cli` can be used as a debugging/diagnosis tool , especially in our pubslish-subscribe scenario where you can easily hook up to a target channel and see if your messages get published/delivered.
 
-### NET 5.0
+#### NET 5.0
 
 For this application we are using .NET 5.0 and you can download it from  [here](https://dotnet.microsoft.com/download/dotnet/5.0).
 
-## Source Code
+
+## Implementation
+
+### Source Code
 
 We will be starting our project from a template of type `ASP NET Core Web Application`.
 
-### Main
+#### Main
 
 ```cs
 
@@ -197,7 +192,7 @@ The above sections are mandatory in any `ASP NET Core` application. The `Program
 
 The `ConnectionMultiplexer` is our connection to the redis database and will be injected as a singleton resource in our application. Connected clients will use the multiplexer as a factory for subscriptions to target channels.
 
-### Middleware
+#### Middleware
 
 In the `Startup` class  `Configure` method above notice the `MapWhen`extension . Based on a predicate it will route  all  requests to the  specified [ASP NET Core Middleware](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-5.0).
 
@@ -231,11 +226,11 @@ The `Invoke` method  is a minimal requirement for any ASP NET middleware so that
 
 Remember the  `Startup.Configure` method , the predicate of `MapWhen` ; this middleware will be invoked only for websocket requests !
 
-### Core
+#### Core
 
 This is the core of the application and since it is the most complex part i will post the entire component , and will explain it afterwards.
 
-#### State
+##### State
 
 The core component uses a private field of type `State` for its operations.
 
@@ -253,7 +248,7 @@ The core component uses a private field of type `State` for its operations.
 - `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
 
 
-#### Chat Client
+##### Chat Client
 
 ```cs
  public sealed partial class ChatClient {
@@ -326,8 +321,7 @@ The core component uses a private field of type `State` for its operations.
     }
 ````
 
-
-##### Chat Client Message Handler
+###### Chat Client Message Handler
 
 We have defined the `ChatClient` as `partial` in order to separate the message handling method `HandleMessageAsync` from the rest of the class  due to its complexity:
 
@@ -401,6 +395,16 @@ public  sealed  partial class ChatClient {
                     break;
             }
         }
+```
 
-  
-````
+This method is just a large `switch-case` statement where we either :
+
+- edit the Redis hashset holding subscribed user channels  , and forward the result of the operation  to the `outboundQueue` to get popped in the `outboundTask`at some point , and , eventually get written over the websocket to the client.
+- publish the incoming message to the redis channel , thus all other subscribed users will receive it.
+
+## Testing
+
+I  will be using [Simple WebSocket Client](https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo)  as a testing interface.
+
+
+### Subscribe and Unsubscribe
