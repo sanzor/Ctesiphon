@@ -1,0 +1,25 @@
+
+{
+  "Messages": [
+    {
+      "Kind": 0,
+      "Payload": "{\"Channel\":\"mychannel\",\"ClientId\":\"adrian\"}"
+    },
+    {
+      "Kind": 1,
+      "Payload": "{\"Channel\":\"mychannel\",\"ClientId\":\"adrian\"}"
+    },
+    {
+      "Kind": 3,
+      "Payload": "{\"Channel\":\"mychannel\",\"ClientId\":\"adrian\"}"
+    },
+    {
+      "Kind": 4
+    },
+    {
+      "Kind": 100,
+      "Payload": "Subscribed to channel :mychannel SUCCESSFULLY !"
+    }
+  ]
+}
+

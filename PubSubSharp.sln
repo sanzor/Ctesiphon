@@ -5,6 +5,11 @@ VisualStudioVersion = 16.0.29503.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PubSubSharp.Server", "Core\PubSubSharp.Server.csproj", "{CF90C11B-DB13-4945-B4C7-7DBE9804AF62}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{72DD54A2-9D9A-4490-B70E-37F637355D7D}"
+	ProjectSection(SolutionItems) = preProject
+		Message.json = Message.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,9 +23,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{CF90C11B-DB13-4945-B4C7-7DBE9804AF62} = {481ECEB1-0654-4B71-A656-78311506F765}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6822DF34-5EDB-48B5-BF60-2F1067FE2B66}

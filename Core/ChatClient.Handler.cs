@@ -55,11 +55,11 @@ namespace PubSubSharp.Server {
                     if (!await this.state.redisDB.HashExistsAsync(chatMessage.ClientId, chatMessage.Channel)) {
                         outboundQueue.Add(new WSMessage {
                             Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
-                            Payload = $"Can not send message.Client:{chatMessage.ClientId} " +
-                            $"does not exist or is not subscribed to channel:{chatMessage.Channel}"}
+                            Payload = $"Can not send message. Client : {chatMessage.ClientId} " +
+                            $"does not exist or is not subscribed to channel : {chatMessage.Channel}"}
                         .ToJson());
                     }
-                    await this.state.subscriber.PublishAsync(chatMessage.Channel, $"Channel:{chatMessage.Channel},Sender:{chatMessage.ClientId},Message:{chatMessage.Message}");
+                    await this.state.subscriber.PublishAsync(chatMessage.Channel, $"Channel : {chatMessage.Channel}, Sender : {chatMessage.ClientId}, Message : {chatMessage.Message}");
                     break;
                 case WSMessage.DISCRIMINATOR.CLIENT_GET_CHANNELS:
                     var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
