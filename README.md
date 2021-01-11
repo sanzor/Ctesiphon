@@ -1,8 +1,6 @@
 <div style="page-break-after: always"></div>
 
-
 # Writing a Chat Application from scratch featuring ASP NET 5.0 , Redis Pub/Sub and Websockets
-
 
 ![](image/README/1610082389531.png)
 
@@ -39,35 +37,17 @@ Years after completely abandoning gaming and dabbling for some time in areas suc
 
 <div style="page-break-after: always"></div>
 
-
 ### Flow
 
 By flow we will be referring to the way both inbound- messages arriving from the client  and outbound messages  sent to the client are handled and where and how does the Websocket object fit in as well as the Redis database.
 
 #### Inbound Task
 
-![Inbound Flow](image/Server/1609585970364.png)
+![](image/README/1610383388700.png)
 
-The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)  (for those familiar with the `.NET` Ecosystem - an operation which is dispatched over the threadpool)  is basically a loop which receives messages from the client , parses , and handles them.
+The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)  is basically a loop which receives messages from the client , parses them and dispatches them to an appropriate handler as can be seen from above.
 
-This [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0) gets spawned at the begining of the session - when the user connects to the server via a upgradeable  websocket request .<div style="page-break-after: always"></div>
-
-##### Message types
-
-Inside the inbound Task we will receive messages from the websocket connection and it is our responsibility to handle them accordingly.Therefore  the following messages have been defined:
-
-
-| Message Type | Arguments | Action Performed |
-| - | - | - |
-| <i>**SUBSCRIBE**</i> | `Client ID`, `Channel` | Subscribes to Redis `Channel`  or sends back to client a **SERVER_RESULT** message with the failure reason ( already subscribed/ID mismatch) |
-| **UNSUBSCRIBE** | `Channel` | Unsubscribes from Redis`Channel` or sends to client a**SERVER_RESULT** message with the reason for failure |
-| **MESSAGE** | `ClientID`,<br />`Channel`,<br />`Payload` | Publishes`Payload` to target Redis  `Channel` on behalf of `Client ID` |
-| **GET_CHANNELS** | `Client ID` | Retrieves all the channels that the`ClientID` is subscribed to. |
-
-**Notes**:
-
-- We did not include in the table the message of type **SERVER_RESULT** since this is an outbound message. The server sends this message to the client as the result of the attempted operation !
-- The `SERVER_RESULT` messages , as you can see ,  are not written to the websocket , but to an Outbound Queue (this will be explained in the next section : *The Outbound Task* ) !
+**Note**: One such handler will write messages to a redis **channel**.
 
 <div style="page-break-after: always"></div>
 
@@ -129,7 +109,6 @@ You can also test the `publish-subscribe` feature of redis by opening two  `redi
 For this application we are using .NET 5.0 and you can download it from  [here](https://dotnet.microsoft.com/download/dotnet/5.0).
 
 <div style="page-break-after: always"></div>
-
 
 ## Implementation
 
@@ -314,81 +293,9 @@ The core component uses a private field of type `State` for its operations.
 
 <div style="page-break-after: always"></div>
 
-###### Chat Client Message Handler
+###### Chat Client Handlers
 
-We have defined the `ChatClient` as `partial` in order to separate the message handling method `HandleMessageAsync` from the rest of the class  due to its complexity:
-
-```cs
-
-public  sealed  partial class ChatClient {
-  
-          // message  handling routine
-        // SUBSCRIBE- adds channel to redis hashset
-        // UNSUBSCRIBE- deletes channel from redis hashset
-        // MESSAGE - publishes redis message to target channel
-        // GET_CHANNELS - fetches all user subscribed channels from redis hashset
-        private async Task HandleMessageAsync(WSMessage message) {
-            switch (message.Kind) {
-
-                case WSMessage.DISCRIMINATOR.CLIENT__SUBSCRIBE:
-                    ControlMessage subscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
-                    if (subscribeMessage.ClientId != this.state.ClientId && this.state.ClientId != null) {
-                        outboundQueue.Add(new WSMessage { 
-                             Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
-                             Payload = $"Error: ClientId mismatch ! " }
-                        .ToJson());
-                        return;
-                    }
-                    if (await state.redisDB.HashExistsAsync(this.state.ClientId = subscribeMessage.ClientId, subscribeMessage.Channel)) {
-                        outboundQueue.Add(new WSMessage { 
-                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
-                            Payload = $"Error: ALREADY SUBSCRIBED TO CHANNEL {subscribeMessage.Channel}"  }.ToJson());
-                        return;
-                    }
-                    await this.state.subscriber.SubscribeAsync(subscribeMessage.Channel, this.OnRedisMessageHandler);
-                    await state.redisDB.HashSetAsync(subscribeMessage.ClientId, subscribeMessage.Channel, "set");
-                    outboundQueue.Add(new WSMessage { 
-                        Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
-                        Payload = $"Subscribed to channel : {subscribeMessage.Channel} SUCCESSFULLY !"}
-                    .ToJson());
-                    break;
-                case WSMessage.DISCRIMINATOR.CLIENT_UNSUBSCRIBE:
-                    ControlMessage unsubscribeMessage = JsonSerializer.Deserialize<ControlMessage>(message.Payload);
-                    bool deleted = await state.redisDB.HashDeleteAsync(this.state.ClientId, unsubscribeMessage.Channel);
-                    if (!deleted) {
-                        outboundQueue.Add(new WSMessage { 
-                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
-                            Payload = $" UNSUBSCRIBE UNSUCCESSFUL" }
-                        .ToJson());
-                        return;
-                    }
-                    await this.state.subscriber.UnsubscribeAsync(unsubscribeMessage.Channel, this.OnRedisMessageHandler);
-                    outboundQueue.Add(new WSMessage { 
-                        Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT, 
-                        Payload = $" UNSUBSCRIBE SUCCESSFUL" }
-                    .ToJson());
-                    break;
-                case WSMessage.DISCRIMINATOR.CLIENT_MESSAGE:
-                    ChatMessage chatMessage = JsonSerializer.Deserialize<ChatMessage>(message.Payload);
-                    if (!await this.state.redisDB.HashExistsAsync(chatMessage.ClientId, chatMessage.Channel)) {
-                        outboundQueue.Add(new WSMessage {
-                            Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
-                            Payload = $"Can not send message.Client: {chatMessage.ClientId} " +
-                            $"does not exist or is not subscribed to channel: {chatMessage.Channel}"}
-                        .ToJson());
-                    }
-                    await this.state.subscriber.PublishAsync(chatMessage.Channel, $"Channel : {chatMessage.Channel}, Sender : {chatMessage.ClientId}, Message : {chatMessage.Message}");
-                    break;
-                case WSMessage.DISCRIMINATOR.CLIENT_GET_CHANNELS:
-                    var channels = await this.state.redisDB.HashGetAllAsync(this.state.ClientId);
-                    outboundQueue.Add(new WSMessage {
-                         Kind = WSMessage.DISCRIMINATOR.SERVER__RESULT,
-                         Payload = channels.ToJson()}
-                    .ToJson());
-                    break;
-            }
-        }
-```
+We have defined the `ChatClient` as `partial` in order to separate the message handling method `HandleMessageAsync` from the rest of the class due to its complexity.
 
 This method is just a large `switch-case` statement where we either :
 
@@ -396,7 +303,6 @@ This method is just a large `switch-case` statement where we either :
 - publish the incoming message to the redis channel , thus all other subscribed users will receive it.
 
 <div style="page-break-after: always"></div>
-
 
 ## Testing
 
