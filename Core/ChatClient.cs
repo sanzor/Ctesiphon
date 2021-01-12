@@ -41,17 +41,17 @@ namespace PubSubSharp.Server {
 
         //entrypoint -starts asynchronous outbound task
         public async Task RunAsync(WebSocket socket) {
-            this.state.outboundTask = Task.Run(async () => {
-                foreach (var item in this.outboundQueue.GetConsumingEnumerable()) {
-                    var bytes = Encoding.UTF8.GetBytes(item);
-                    await socket.SendAsync(bytes,WebSocketMessageType.Text,true,CancellationToken.None);
-                }
-            });
+            this.state.outboundTask = Task.Run(async()=>await OutboundLoopAsync(socket));
             await this.InboundLoopAsync(socket);
         }
-  
 
-
+        
+       public async Task OutboundLoopAsync(WebSocket socket){
+           foreach (var item in this.outboundQueue.GetConsumingEnumerable()) {
+                    var bytes = Encoding.UTF8.GetBytes(item);
+                    await socket.SendAsync(bytes,WebSocketMessageType.Text,true,CancellationToken.None);
+            }
+       }
         // inbound task - receives messages ,parses them and handles them accordingly
         // on loop end - triggers the cleanup routine
         private async Task InboundLoopAsync(WebSocket socket) {
