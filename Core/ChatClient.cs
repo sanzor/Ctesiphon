@@ -41,8 +41,10 @@ namespace PubSubSharp.Server {
 
         //entrypoint -starts asynchronous outbound task
         public async Task RunAsync(WebSocket socket) {
+            
             this.state.outboundTask = Task.Run(async()=>await OutboundLoopAsync(socket));
             await this.InboundLoopAsync(socket);
+            
         }
 
         

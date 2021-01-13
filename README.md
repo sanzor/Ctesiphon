@@ -1,8 +1,8 @@
 <div style="page-break-after: always"></div>
 
-# Ctesiphon - Chat Application with ASP NET 5.0 , Redis Pub/Sub and Websockets
+# Ctesiphon - Chat Application with ASP .NET Core 5.0 , Redis Pub/Sub and Websockets
 
-![](image/README/1610082389531.png)
+![asa](Docs/logos.png)
 
 <div style="page-break-after: always"></div>
 
@@ -43,7 +43,7 @@ By flow we will be referring to the way both inbound- messages arriving from the
 
 #### Inbound Task
 
-![](image/README/1610420914598.png)
+![](Docs/Inbound.png)
 
 The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task?view=net-5.0)  is basically a loop which receives messages from the client , parses them and dispatches them to an appropriate handler as can be seen from above.
 
@@ -53,7 +53,7 @@ The inbound [Task](https://docs.microsoft.com/en-us/dotnet/api/system.threading.
 
 #### Outbound Task
 
-![](image/README/1610420843297.png)
+![](Docs/Outbound.png)
 
 The outbound Task is a loop started asynchronously from the  inbound task.Its purpose is to pop items off the queue and write them over the websocket to the connected client.
 
@@ -117,7 +117,7 @@ We will be starting our project from a template of type `ASP NET Core Web Applic
 
 The above sections are mandatory in any `ASP NET Core` application and are automatically generated from the template .
 
- The `Program.Main` starts the application and will  use the `Startup` class to configure it.
+The `Program.Main` starts the application and will  use the `Startup` class to configure it.
 
 In the `Startup.ConfigureServices` , the `ConnectionMultiplexer` is our connection to the redis database and will be injected as a singleton resource in our application. Connected clients will use the multiplexer as a factory for subscriptions to target channels.
 
@@ -161,7 +161,7 @@ This is the core of the application and since it is the most complex part i will
 
 ##### State
 
-The core component uses a private field of type `State` for its operations.
+The core component uses a private field of type [State](https://github.com/sanzor/Ctesiphon/blob/master/Core/State.cs) for its operations.
 
 ```cs
    internal class State {
@@ -172,8 +172,8 @@ The core component uses a private field of type `State` for its operations.
     }
 ```
 
-- `subscriber`is a component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis)  and  is used to subscribe/unsubscribe on redis channels.
-- `redisDB` is a also a  component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis) and is used for issuing redis querries.
+- `ISubscriber`is a component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis)  and  is used to subscribe/unsubscribe on redis channels.
+- `IDatabase` is a also a  component of [StackExchangeRedis](https://github.com/StackExchange/StackExchange.Redis) and is used for issuing redis querries.
 - `outboundTask` - the task that runs the outbound flow ( taking messages from the queue and pushing them over the websocket)
 
 ##### Chat Client
@@ -253,6 +253,7 @@ The `OnRedisMessageHandler`   delegate adds new messages to the `outboundQueue` 
 
 The `outboundTask` is a long running loop , that  pops messages off the `outboundQueue` or waits in case of none present  (blocking operation)  ; the popped message is then  written over the websocket to the client.
 
+**Note** : To better understand the scope of the two tasks check out the [Sequence Diagram](Docs/Tasks) !
 
 <div style="page-break-after: always"></div>
 
@@ -272,7 +273,13 @@ public enum DISCRIMINATOR {
         }
 ```
 
+**Note** - All messages that travel over the websocket both inbound and outbound comply to the format of [WSMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/WSMessage.cs) .
+
 **Dispatcher**
+
+Whenever a new inbound  message arrives  we call the below method.
+
+Depending on the [WSMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/WSMessage.cs) `Kind` we will deserialize the [WSMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/WSMessage.cs) `Payload`  in a [Control Message](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/ControlMessage.cs) or a  [ChatMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/ChatMessage.cs) .
 
 ```cs
  private async Task HandleMessageAsync(WSMessage message) {
@@ -297,7 +304,7 @@ public enum DISCRIMINATOR {
         }
 ```
 
-Upon receiving a message in the `inboundLoop` ( see the above section ) we forward it to this method and then based on the message type we handle it accordingly.
+Next we are going to see how each message is being treated. The source file cand be found [here](https://github.com/sanzor/Ctesiphon/blob/master/Core/ChatClient.Handlers.cs) as well .
 
 **Susbscribe Handler**
 
@@ -336,12 +343,11 @@ For each client we store in redis an associated hashset of the form :
 
 `{ "client_x" , [ { "channel1":"set" } , {"channel2","set"} , {"channel3","set"} ] }`
 
-We will first test if the `ClientId` matches with the one in redis.If posiitive we will test if the target channel is already present in the redis hashset.
+We will first test if the `ClientId` matches with the one in redis.If positive we will test if the target `Channel` is already present in the redis hashset.
 
-If all is fine we will use the `SubscribeAsync` method for the target `Channel` providing the message handler. (The way we want our incoming messages to be treated ; in our case they are added to the `outboundQueue`)
+If all is fine we will use the `SubscribeAsync` method for the target `Channel` providing  the `OnRedisMessageHandler` as the required argument.
 
-On any type of failure we will  write in the `outboundQueue`   a `SERVER_RESULT` type of message with the specific error message.
-
+On any type of failure we will  write in the `outboundQueue`  a `SERVER_RESULT` type of message with the specific error message.
 
 **Unsubscribe Handler**
 
@@ -402,8 +408,9 @@ private async Task HandleGetChannelsAsync(WSMessage message) {
 
 We retrieve all key-values   from the `ClientId` redis hashset and forward the result  to the `outboundQueue`.
 
-<div style="page-break-after: always"></div>
+The dispatcher as well as the handlers can be found [here](https://github.com/sanzor/Ctesiphon/blob/master/Core/ChatClient.Handlers.cs)
 
+<div style="page-break-after: always"></div>
 
 ## Prerequisites
 
@@ -433,15 +440,11 @@ and you should see the below output which indicates your redis server is up and 
 
 ##### Redis-Cli
 
-With the `redis-server` started  you can start playing with redis using the `Redis-Cli` from a terminal with the command`redis-cli`.
+With the `redis-server` started  you can start playing with redis using the `Redis-Cli` from a terminal with the command:
 
-![](image/Server/1609672675137.png)
+`> redis-cli`
 
-You can also test the `publish-subscribe` feature of redis by opening two  `redis-cli`  like below:
-
-![](image/Server/1609672283904.png)
-
-`redis-cli` can be used as a debugging/diagnosis tool , especially in our pubslish-subscribe scenario where you can easily hook up to a target channel and see if your messages get published/delivered.
+Start having fun with redis by trying its [Commands](https://redis.io/commands) !
 
 <div style="page-break-after: always"></div>
 
@@ -449,7 +452,7 @@ You can also test the `publish-subscribe` feature of redis by opening two  `redi
 
 I  will be using [Simple WebSocket Client](https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo)  as a testing interface.
 
-### Subscribe and Unsubscribe
+### Subscribe
 
 ![](image/README/1610251736157.png)
 
@@ -458,7 +461,7 @@ In the picture above in the  **Message Log**
 - The red line(s) are messages we send to the server
 - The black line(s) are server sent messages
 
-
+### Unsubscribe
 
 ![](image/README/1610251950826.png)
 
@@ -469,3 +472,7 @@ Now that you are comfortable with the [Simple WebSocket Client](https://chrome.g
 ![](image/README/1610252775155.png)
 
 We subscribe to channel `mychannel`, we send some messages and then unsubscribe. As expected the last message will not get published since we unsubscribed from the target channel.
+
+#### Note:
+
+For debugging/diagnosing purposes you can open   `Redis-Cli` and via the [Pub/Sub](https://redis.io/topics/pubsub) functionality , subscribe to the target `Channel` and see what messages are flowing through it , or push messages directly and see if they arrive in your [Simple WebSocket Client](https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo) . (Make sure you send only  serialized  [WSMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/WSMessage.cs)'s).
