@@ -1,6 +1,6 @@
 <div style="page-break-after: always"></div>
 
-# Ctesiphon - Chat Application with ASP .NET Core 5.0 , Redis Pub/Sub and Websockets
+# Ctesiphon Chat Server 
 
 ![asa](Docs/logos.png)
 
@@ -245,7 +245,7 @@ The core component uses a private field of type [State](https://github.com/sanzo
     }
 ````
 
-The `RunAsync` is the entrypoint to our client ; it starts the asynchronous `outboundTask` and then continues with running the inbound task (loop).
+The `RunAsync` is the entrypoint to our client ; it starts the asynchronous `outboundTask` and then continues with running the inbound task.
 
 When the `inboundTask` is finished/throws exception , we run the `CleanupSessionAsync` which deletes channel subscriptions as well as client data stored in a redis hashset.
 
@@ -476,3 +476,17 @@ We subscribe to channel `mychannel`, we send some messages and then unsubscribe.
 #### Note:
 
 For debugging/diagnosing purposes you can open   `Redis-Cli` and via the [Pub/Sub](https://redis.io/topics/pubsub) functionality , subscribe to the target `Channel` and see what messages are flowing through it , or push messages directly and see if they arrive in your [Simple WebSocket Client](https://chrome.google.com/webstore/detail/simple-websocket-client/pfdhoblngboilpfeibdedpjgfnlcodoo) . (Make sure you send only  serialized  [WSMessage](https://github.com/sanzor/Ctesiphon/blob/master/Core/Models/WSMessage.cs)'s).
+
+## Further developments
+
+In this article we have developed the server of a chat application.
+
+We have tested the application by using a simple websocket client as an extension of google chrome but as you might have already guessed ,  for any non-trivial scenario  in which this application is going to be used , we are going to need a dedicated Chat Client.
+
+This is precisely what the next article will be about. Stay tuned !
+
+
+$$
+$
+
+$$
