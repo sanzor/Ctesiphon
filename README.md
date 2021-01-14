@@ -1,6 +1,6 @@
 <div style="page-break-after: always"></div>
 
-# Ctesiphon Chat Server 
+# Ctesiphon
 
 ![asa](Docs/logos.png)
 
@@ -484,7 +484,6 @@ In this article we have developed the server of a chat application.
 We have tested the application by using a simple websocket client as an extension of google chrome but as you might have already guessed ,  for any non-trivial scenario  in which this application is going to be used , we are going to need a dedicated Chat Client.
 
 This is precisely what the next article will be about. Stay tuned !
-
 
 $$
 $
